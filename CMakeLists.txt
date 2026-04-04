@@ -1,0 +1,45 @@
+cmake_minimum_required(VERSION 3.20)
+project(orda-book LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+option(LOB_ENABLE_ASAN "Enable address sanitizer" OFF)
+
+add_library(orda_core
+  src/order_book.cpp
+  src/event_parser.cpp
+)
+
+target_include_directories(orda_core PUBLIC src)
+
+target_compile_options(orda_core PRIVATE
+  -Wall
+  -Wextra
+  -Wpedantic
+  -Wconversion
+  -Wshadow
+)
+
+if(LOB_ENABLE_ASAN)
+  target_compile_options(orda_core PRIVATE -fsanitize=address -fno-omit-frame-pointer)
+  target_link_options(orda_core PRIVATE -fsanitize=address)
+endif()
+
+add_executable(orda_replay src/replay_main.cpp)
+target_link_libraries(orda_replay PRIVATE orda_core)
+
+add_executable(orda_benchmark src/benchmark_main.cpp)
+target_link_libraries(orda_benchmark PRIVATE orda_core)
+
+add_executable(orda_tests
+  tests/test_main.cpp
+  tests/order_book_tests.cpp
+  tests/replay_tests.cpp
+)
+target_link_libraries(orda_tests PRIVATE orda_core)
+
+include(CTest)
+enable_testing()
+add_test(NAME orda_tests COMMAND orda_tests)
