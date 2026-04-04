@@ -1,6 +1,6 @@
 # orda-book
 
-Small C++ limit order book project for learning.
+Lil' limit order book thing. Does what you'd expect 🤷🏻‍♂️
 
 ## Features
 - matching
