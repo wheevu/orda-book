@@ -6,10 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(LOB_ENABLE_ASAN "Enable address sanitizer" OFF)
+option(LOB_BUILD_FUZZER "Build the libFuzzer differential target" OFF)
 
 add_library(orda_core
   src/order_book.cpp
   src/pooled_order_book.cpp
+  src/ladder_order_book.cpp
   src/event_parser.cpp
 )
 
@@ -37,6 +39,7 @@ target_link_libraries(orda_benchmark PRIVATE orda_core)
 add_executable(orda_tests
   tests/test_main.cpp
   tests/order_book_tests.cpp
+  tests/abuse_tests.cpp
   tests/property_tests.cpp
   tests/reference_order_book.cpp
   tests/differential_tests.cpp
@@ -47,3 +50,13 @@ target_link_libraries(orda_tests PRIVATE orda_core)
 include(CTest)
 enable_testing()
 add_test(NAME orda_tests COMMAND orda_tests)
+
+if(LOB_BUILD_FUZZER)
+  add_executable(orda_fuzz
+    tests/fuzz_target.cpp
+    tests/reference_order_book.cpp
+  )
+  target_link_libraries(orda_fuzz PRIVATE orda_core)
+  target_compile_options(orda_fuzz PRIVATE -fsanitize=fuzzer,address,undefined)
+  target_link_options(orda_fuzz PRIVATE -fsanitize=fuzzer,address,undefined)
+endif()

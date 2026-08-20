@@ -1,6 +1,7 @@
 #include "event_parser.hpp"
 #include "order_book.hpp"
 #include "pooled_order_book.hpp"
+#include "ladder_order_book.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -58,10 +59,19 @@ enum class WorkloadKind {
 enum class BackendKind {
   Baseline,
   Pooled,
+  Ladder,
 };
 
 std::string_view to_string(BackendKind backend) {
-  return backend == BackendKind::Baseline ? "baseline" : "pooled";
+  switch (backend) {
+    case BackendKind::Baseline:
+      return "baseline";
+    case BackendKind::Pooled:
+      return "pooled";
+    case BackendKind::Ladder:
+      return "ladder";
+  }
+  return "unknown";
 }
 
 std::optional<BackendKind> parse_backend(std::string_view token) {
@@ -70,6 +80,9 @@ std::optional<BackendKind> parse_backend(std::string_view token) {
   }
   if (token == "pooled") {
     return BackendKind::Pooled;
+  }
+  if (token == "ladder") {
+    return BackendKind::Ladder;
   }
   return std::nullopt;
 }
@@ -754,6 +767,10 @@ int main(int argc, char** argv) {
     }
 
     const auto run_stream = [&config](const WorkloadStream& stream) {
+      if (config.backend == BackendKind::Ladder) {
+        return run_engine<lob::LadderOrderBook>(stream, config.collect_latency,
+                                                config.reuse_trades);
+      }
       if (config.backend == BackendKind::Pooled) {
         return run_engine<lob::PooledOrderBook>(stream, config.collect_latency,
                                                 config.reuse_trades);
@@ -761,6 +778,10 @@ int main(int argc, char** argv) {
       return run_engine<lob::OrderBook>(stream, config.collect_latency, config.reuse_trades);
     };
     const auto run_file = [&config](const std::string& file_path) {
+      if (config.backend == BackendKind::Ladder) {
+        return run_parse_and_engine<lob::LadderOrderBook>(file_path, config.collect_latency,
+                                                          config.reuse_trades);
+      }
       if (config.backend == BackendKind::Pooled) {
         return run_parse_and_engine<lob::PooledOrderBook>(file_path, config.collect_latency,
                                                           config.reuse_trades);

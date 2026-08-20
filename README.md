@@ -35,6 +35,8 @@ Run a benchmark:
 
 Select the experimental pooled backend with `--backend pooled`.
 
+Select the bounded price-ladder backend with `--backend ladder`.
+
 The default is `--backend baseline`.
 
 For a timer-free throughput comparison, reuse the trade buffer and disable
@@ -55,6 +57,7 @@ per-event latency collection:
 - Ordered bid and ask price levels.
 - FIFO queues within each price level.
 - Experimental preallocated order-slot backend.
+- Experimental bounded price-ladder backend.
 - Order-ID lookup for cancellation and modification.
 - Add, cancel, and cancel-replace modification events.
 - Multi-level matching and trade output.
@@ -120,6 +123,10 @@ positive quantities, non-crossing state, live-order counts, and valid trades.
   local baseline and its environment metadata.
 - [`docs/ORDER_STORAGE_DESIGN.md`](docs/ORDER_STORAGE_DESIGN.md): the proposed
   pooled order-slot backend and its equivalence contract.
+- [`docs/PRICE_LADDER_DESIGN.md`](docs/PRICE_LADDER_DESIGN.md): bounded price
+  assumptions, bitmap discovery, and comparison boundaries.
+- [`docs/FUZZING.md`](docs/FUZZING.md): optional libFuzzer differential target
+  and smoke commands.
 
 ## Limitations
 

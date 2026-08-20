@@ -79,6 +79,7 @@ enum class BookError {
   InvalidPrice,
   InvalidQuantity,
   CapacityExceeded,
+  PriceOutOfRange,
 };
 
 inline std::string_view to_string(BookError error) {
@@ -95,6 +96,8 @@ inline std::string_view to_string(BookError error) {
       return "invalid_quantity";
     case BookError::CapacityExceeded:
       return "capacity_exceeded";
+    case BookError::PriceOutOfRange:
+      return "price_out_of_range";
   }
   return "unknown";
 }

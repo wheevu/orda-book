@@ -1,5 +1,6 @@
 #include "order_book.hpp"
 #include "pooled_order_book.hpp"
+#include "ladder_order_book.hpp"
 #include "reference_order_book.hpp"
 #include "test_framework.hpp"
 
@@ -178,4 +179,20 @@ TEST_CASE(pooled_capacity_rejection_does_not_mutate_the_book) {
   CHECK_EQ(static_cast<int>(book.cancel_order(1)), static_cast<int>(lob::BookError::None));
   CHECK_EQ(static_cast<int>(book.add_order(2, lob::Side::Ask, 100, 1, trades)),
            static_cast<int>(lob::BookError::None));
+}
+
+TEST_CASE(ladder_engine_matches_reference_across_fixed_histories) {
+  for (std::uint64_t seed = 1; seed <= 32; ++seed) {
+    run_differential_history<lob::LadderOrderBook>(generate_history(seed, 750));
+  }
+}
+
+TEST_CASE(ladder_rejects_prices_outside_its_configured_range) {
+  lob::LadderOrderBook book(10, 100);
+  std::vector<lob::Trade> trades;
+  CHECK_EQ(static_cast<int>(book.add_order(1, lob::Side::Bid, 101, 1, trades)),
+           static_cast<int>(lob::BookError::PriceOutOfRange));
+  CHECK_EQ(static_cast<int>(book.add_order(2, lob::Side::Bid, 9, 1, trades)),
+           static_cast<int>(lob::BookError::PriceOutOfRange));
+  CHECK_EQ(book.live_order_count(), static_cast<std::size_t>(0));
 }

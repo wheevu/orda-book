@@ -20,7 +20,8 @@ The generated harness currently provides six workload shapes:
 Each generated workload records its seed and separates setup events from timed
 events.
 
-The benchmark supports `--backend baseline` and `--backend pooled`.
+The benchmark supports `--backend baseline`, `--backend pooled`, and
+`--backend ladder`.
 
 The baseline backend is the default.
 
