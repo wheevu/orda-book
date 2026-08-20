@@ -171,9 +171,6 @@ BookError OrderBook::modify_order(OrderId order_id, Price new_price, Quantity ne
     return BookError::UnknownOrderId;
   }
 
-  const Side side = it->second.order_it->side;
-  remove_order(order_id, it->second);
-
   if (!is_valid_price(new_price)) {
     stats_.rejected_requests += 1;
     return BookError::InvalidPrice;
@@ -182,6 +179,9 @@ BookError OrderBook::modify_order(OrderId order_id, Price new_price, Quantity ne
     stats_.rejected_requests += 1;
     return BookError::InvalidQuantity;
   }
+
+  const Side side = it->second.order_it->side;
+  remove_order(order_id, it->second);
 
   const Quantity remaining = match_incoming(order_id, side, new_price, new_qty, trades);
   if (remaining > 0) {

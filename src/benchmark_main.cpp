@@ -133,6 +133,9 @@ struct RunStats {
   std::size_t live_orders{};
   lob::Quantity traded_qty{};
   double seconds{};
+  std::uint64_t p50_ns{};
+  std::uint64_t p99_ns{};
+  std::uint64_t p999_ns{};
 };
 
 struct LiveOrder {
@@ -485,11 +488,42 @@ WorkloadStream build_workload(WorkloadKind workload, std::size_t count, std::uin
   throw std::runtime_error("unreachable workload");
 }
 
+std::uint64_t percentile_ns(const std::vector<std::uint64_t>& sorted_latencies,
+                            std::size_t numerator, std::size_t denominator) {
+  if (sorted_latencies.empty()) {
+    return 0;
+  }
+  const std::size_t rank =
+      (sorted_latencies.size() * numerator + denominator - 1U) / denominator;
+  const std::size_t index = std::min(rank - 1U, sorted_latencies.size() - 1U);
+  return sorted_latencies[index];
+}
+
+RunStats make_run_stats(std::size_t setup_events, std::size_t timed_events,
+                        const lob::OrderBook& book,
+                        std::size_t pre_timed_trade_count, lob::Quantity pre_timed_traded_qty,
+                        double seconds, std::vector<std::uint64_t> latencies) {
+  std::sort(latencies.begin(), latencies.end());
+  const auto& stats = book.stats();
+  return RunStats{setup_events,
+                  timed_events,
+                  stats.trades - pre_timed_trade_count,
+                  stats.rejected_requests,
+                  book.live_order_count(),
+                  stats.traded_qty - pre_timed_traded_qty,
+                  seconds,
+                  percentile_ns(latencies, 50, 100),
+                  percentile_ns(latencies, 99, 100),
+                  percentile_ns(latencies, 999, 1000)};
+}
+
 RunStats run_engine(const WorkloadStream& stream) {
   lob::OrderBook book;
   book.reserve_orders(stream.setup.size() + stream.timed.size());
   std::vector<lob::Trade> trades;
   trades.reserve((stream.setup.size() + stream.timed.size()) / 2 + 1);
+  std::vector<std::uint64_t> latencies;
+  latencies.reserve(stream.timed.size());
 
   for (const lob::Event& event : stream.setup) {
     const lob::BookError error = book.process(event, trades);
@@ -503,18 +537,21 @@ RunStats run_engine(const WorkloadStream& stream) {
 
   const auto start = Clock::now();
   for (const lob::Event& event : stream.timed) {
+    const auto event_start = Clock::now();
     const lob::BookError error = book.process(event, trades);
+    const auto event_end = Clock::now();
     if (error != lob::BookError::None) {
       throw std::runtime_error("timed event rejected");
     }
+    latencies.push_back(static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(event_end - event_start).count()));
   }
   const auto end = Clock::now();
 
-  const auto& stats = book.stats();
   const std::chrono::duration<double> elapsed = end - start;
-  return RunStats{stream.setup.size(), stream.timed.size(), stats.trades - pre_timed_trade_count,
-                  stats.rejected_requests, book.live_order_count(),
-                  stats.traded_qty - pre_timed_traded_qty, elapsed.count()};
+  return make_run_stats(stream.setup.size(), stream.timed.size(), book,
+                        pre_timed_trade_count, pre_timed_traded_qty,
+                        elapsed.count(), std::move(latencies));
 }
 
 RunStats run_parse_and_engine(const std::string& file_path) {
@@ -528,18 +565,23 @@ RunStats run_parse_and_engine(const std::string& file_path) {
   book.reserve_orders(parsed.events.size());
   std::vector<lob::Trade> trades;
   trades.reserve(parsed.events.size() / 2 + 1);
+  std::vector<std::uint64_t> latencies;
+  latencies.reserve(parsed.events.size());
   for (const lob::Event& event : parsed.events) {
+    const auto event_start = Clock::now();
     const lob::BookError error = book.process(event, trades);
+    const auto event_end = Clock::now();
     if (error != lob::BookError::None) {
       throw std::runtime_error("replay failed");
     }
+    latencies.push_back(static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(event_end - event_start).count()));
   }
   const auto end = Clock::now();
 
-  const auto& stats = book.stats();
   const std::chrono::duration<double> elapsed = end - start;
-  return RunStats{0, parsed.events.size(), stats.trades, stats.rejected_requests, book.live_order_count(),
-                  stats.traded_qty, elapsed.count()};
+  return make_run_stats(0, parsed.events.size(), book, 0, 0, elapsed.count(),
+                        std::move(latencies));
 }
 
 double events_per_second(const RunStats& stats) {
@@ -559,17 +601,23 @@ RunStats median_run(std::vector<RunStats> runs) {
 
 void print_round(std::size_t round, const RunStats& stats) {
   std::cout << "round " << round << ": " << std::fixed << std::setprecision(6) << stats.seconds << " s"
-            << "  " << std::setprecision(2) << events_per_second(stats) << " ev/s"
-            << "  " << ns_per_event(stats) << " ns/ev"
-            << "  trades=" << stats.trades << " traded_qty=" << stats.traded_qty
+             << "  " << std::setprecision(2) << events_per_second(stats) << " ev/s"
+             << "  " << ns_per_event(stats) << " ns/ev"
+             << "  p50=" << stats.p50_ns << " ns"
+             << "  p99=" << stats.p99_ns << " ns"
+             << "  p999=" << stats.p999_ns << " ns"
+             << "  trades=" << stats.trades << " traded_qty=" << stats.traded_qty
             << " rejected=" << stats.rejected_requests << " live=" << stats.live_orders << '\n';
 }
 
 void print_summary(const RunStats& stats) {
   std::cout << "median : " << std::fixed << std::setprecision(6) << stats.seconds << " s"
-            << "  " << std::setprecision(2) << events_per_second(stats) << " ev/s"
-            << "  " << ns_per_event(stats) << " ns/ev"
-            << "  trades=" << stats.trades << " traded_qty=" << stats.traded_qty
+             << "  " << std::setprecision(2) << events_per_second(stats) << " ev/s"
+             << "  " << ns_per_event(stats) << " ns/ev"
+             << "  p50=" << stats.p50_ns << " ns"
+             << "  p99=" << stats.p99_ns << " ns"
+             << "  p999=" << stats.p999_ns << " ns"
+             << "  trades=" << stats.trades << " traded_qty=" << stats.traded_qty
             << " rejected=" << stats.rejected_requests << " live=" << stats.live_orders << '\n';
 }
 

@@ -172,5 +172,13 @@ TEST_CASE(duplicate_ids_and_invalid_inputs_are_rejected) {
            static_cast<int>(lob::BookError::InvalidQuantity));
   CHECK_EQ(static_cast<int>(book.modify_order(1, 0, 3, trades)),
            static_cast<int>(lob::BookError::InvalidPrice));
-  CHECK_EQ(book.live_order_count(), static_cast<std::size_t>(0));
+  CHECK_EQ(book.live_order_count(), static_cast<std::size_t>(1));
+  const lob::LevelSnapshot best_bid = require_top(book, lob::Side::Bid);
+  CHECK_EQ(best_bid.price, 100);
+  CHECK_EQ(best_bid.qty, 1);
+
+  CHECK_EQ(static_cast<int>(book.modify_order(1, 101, 0, trades)),
+           static_cast<int>(lob::BookError::InvalidQuantity));
+  CHECK_EQ(book.live_order_count(), static_cast<std::size_t>(1));
+  CHECK_EQ(require_top(book, lob::Side::Bid).price, 100);
 }
