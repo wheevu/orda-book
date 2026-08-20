@@ -35,6 +35,9 @@ Each round reports:
 - p999 event processing latency;
 - trades, traded quantity, rejected requests, and live orders.
 
+The benchmark header records whether latency collection is enabled and whether
+the trade buffer is accumulated or reused.
+
 Per-event latency starts immediately before `OrderBook::process` and ends
 immediately after it returns.
 
@@ -51,6 +54,26 @@ measure only the matching-engine call, while the throughput number includes the
 parse step.
 
 The summary currently reports the round selected by median elapsed duration.
+
+## Measurement modes
+
+Latency collection is enabled by default.
+
+Use `--no-latency` for a timer-free throughput run.
+
+Use `--reuse-trades` to clear the trade vector before each event while retaining
+its allocated capacity.
+
+The default accumulated mode keeps every emitted trade until the round ends.
+
+These modes measure different workloads and should not be compared as though
+they were the same engine path.
+
+Use `--calibrate-clock` to measure the local cost of two back-to-back
+`steady_clock::now()` calls.
+
+The calibration is a measurement floor, not a correction that should be
+subtracted from each event.
 
 ## Run rules
 
@@ -73,6 +96,24 @@ cmake --build build-release --parallel
   --workload cross-heavy \
   --rounds 5 \
   --seed 305419896
+```
+
+Timer-free throughput comparison:
+
+```sh
+./build-release/orda_benchmark \
+  --events 200000 \
+  --workload cross-heavy \
+  --rounds 5 \
+  --seed 305419896 \
+  --no-latency \
+  --reuse-trades
+```
+
+Clock calibration:
+
+```sh
+./build-release/orda_benchmark --calibrate-clock
 ```
 
 ## Interpretation

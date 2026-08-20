@@ -33,6 +33,19 @@ Run a benchmark:
   --seed 305419896
 ```
 
+For a timer-free throughput comparison, reuse the trade buffer and disable
+per-event latency collection:
+
+```sh
+./build/orda_benchmark \
+  --events 200000 \
+  --workload cross-heavy \
+  --rounds 5 \
+  --seed 305419896 \
+  --no-latency \
+  --reuse-trades
+```
+
 ## What it contains
 
 - Ordered bid and ask price levels.
@@ -42,7 +55,8 @@ Run a benchmark:
 - Multi-level matching and trade output.
 - Text and CSV-style event parsing.
 - Six deterministic benchmark workload generators.
-- Example tests and generated invariant histories.
+- Example tests, generated invariant histories, and differential reference
+  histories.
 - Aggregate throughput and p50, p99, and p999 event latency.
 
 ## Matching model
@@ -77,11 +91,14 @@ networking and response delivery.
 
 Numbers are local comparisons, not production exchange performance claims.
 
+Use `./build/orda_benchmark --calibrate-clock` to measure the local timestamp
+floor.
+
 ## Verification
 
 The suite covers matching examples, FIFO behavior, multi-level sweeps,
 cancellation, modification, parser behavior, invalid inputs, generated book
-invariants, and deterministic replay.
+invariants, differential reference histories, and deterministic replay.
 
 The generated histories check the book after every event for ordering,
 positive quantities, non-crossing state, live-order counts, and valid trades.
@@ -94,6 +111,8 @@ positive quantities, non-crossing state, live-order counts, and valid trades.
   histories, invariants, oracle boundaries, and commands.
 - [`docs/BENCHMARKING.md`](docs/BENCHMARKING.md): benchmark measurements,
   percentile definitions, run rules, and limitations.
+- [`docs/BENCHMARK_RESULTS.md`](docs/BENCHMARK_RESULTS.md): the first measured
+  local baseline and its environment metadata.
 
 ## Limitations
 

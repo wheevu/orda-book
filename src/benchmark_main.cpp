@@ -117,6 +117,9 @@ struct BenchmarkConfig {
   std::size_t rounds = 5;
   std::uint64_t seed = kDefaultSeed;
   bool engine_only = false;
+  bool collect_latency = true;
+  bool reuse_trades = false;
+  bool calibrate_clock = false;
 };
 
 struct WorkloadStream {
@@ -136,6 +139,7 @@ struct RunStats {
   std::uint64_t p50_ns{};
   std::uint64_t p99_ns{};
   std::uint64_t p999_ns{};
+  std::size_t latency_samples{};
 };
 
 struct LiveOrder {
@@ -268,7 +272,27 @@ BenchmarkConfig parse_args(int argc, char** argv) {
       config.engine_only = true;
       continue;
     }
+    if (arg == "--no-latency") {
+      config.collect_latency = false;
+      continue;
+    }
+    if (arg == "--reuse-trades") {
+      config.reuse_trades = true;
+      continue;
+    }
+    if (arg == "--calibrate-clock") {
+      config.calibrate_clock = true;
+      continue;
+    }
     throw std::runtime_error("unknown argument: " + arg);
+  }
+
+  if (config.calibrate_clock) {
+    if (config.event_count != 0 || !config.file_path.empty() || config.engine_only ||
+        !config.write_file_path.empty() || config.workload.has_value()) {
+      throw std::runtime_error("--calibrate-clock cannot be combined with benchmark inputs");
+    }
+    return config;
   }
 
   const bool generated_mode = config.event_count != 0;
@@ -514,37 +538,48 @@ RunStats make_run_stats(std::size_t setup_events, std::size_t timed_events,
                   seconds,
                   percentile_ns(latencies, 50, 100),
                   percentile_ns(latencies, 99, 100),
-                  percentile_ns(latencies, 999, 1000)};
+                  percentile_ns(latencies, 999, 1000),
+                  latencies.size()};
 }
 
-RunStats run_engine(const WorkloadStream& stream) {
+RunStats run_engine(const WorkloadStream& stream, bool collect_latency, bool reuse_trades) {
   lob::OrderBook book;
   book.reserve_orders(stream.setup.size() + stream.timed.size());
   std::vector<lob::Trade> trades;
   trades.reserve((stream.setup.size() + stream.timed.size()) / 2 + 1);
   std::vector<std::uint64_t> latencies;
-  latencies.reserve(stream.timed.size());
+  if (collect_latency) {
+    latencies.reserve(stream.timed.size());
+  }
 
   for (const lob::Event& event : stream.setup) {
+    if (reuse_trades) {
+      trades.clear();
+    }
     const lob::BookError error = book.process(event, trades);
     if (error != lob::BookError::None) {
       throw std::runtime_error("setup event rejected");
     }
   }
 
-  const std::size_t pre_timed_trade_count = trades.size();
+  const std::size_t pre_timed_trade_count = book.stats().trades;
   const lob::Quantity pre_timed_traded_qty = book.stats().traded_qty;
 
   const auto start = Clock::now();
   for (const lob::Event& event : stream.timed) {
-    const auto event_start = Clock::now();
+    if (reuse_trades) {
+      trades.clear();
+    }
+    const auto event_start = collect_latency ? Clock::now() : Clock::time_point{};
     const lob::BookError error = book.process(event, trades);
-    const auto event_end = Clock::now();
+    const auto event_end = collect_latency ? Clock::now() : Clock::time_point{};
     if (error != lob::BookError::None) {
       throw std::runtime_error("timed event rejected");
     }
-    latencies.push_back(static_cast<std::uint64_t>(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(event_end - event_start).count()));
+    if (collect_latency) {
+      latencies.push_back(static_cast<std::uint64_t>(
+          std::chrono::duration_cast<std::chrono::nanoseconds>(event_end - event_start).count()));
+    }
   }
   const auto end = Clock::now();
 
@@ -554,7 +589,8 @@ RunStats run_engine(const WorkloadStream& stream) {
                         elapsed.count(), std::move(latencies));
 }
 
-RunStats run_parse_and_engine(const std::string& file_path) {
+RunStats run_parse_and_engine(const std::string& file_path, bool collect_latency,
+                              bool reuse_trades) {
   const auto start = Clock::now();
   const lob::ParseResult parsed = lob::parse_event_file(file_path);
   if (!parsed.ok) {
@@ -566,16 +602,23 @@ RunStats run_parse_and_engine(const std::string& file_path) {
   std::vector<lob::Trade> trades;
   trades.reserve(parsed.events.size() / 2 + 1);
   std::vector<std::uint64_t> latencies;
-  latencies.reserve(parsed.events.size());
+  if (collect_latency) {
+    latencies.reserve(parsed.events.size());
+  }
   for (const lob::Event& event : parsed.events) {
-    const auto event_start = Clock::now();
+    if (reuse_trades) {
+      trades.clear();
+    }
+    const auto event_start = collect_latency ? Clock::now() : Clock::time_point{};
     const lob::BookError error = book.process(event, trades);
-    const auto event_end = Clock::now();
+    const auto event_end = collect_latency ? Clock::now() : Clock::time_point{};
     if (error != lob::BookError::None) {
       throw std::runtime_error("replay failed");
     }
-    latencies.push_back(static_cast<std::uint64_t>(
-        std::chrono::duration_cast<std::chrono::nanoseconds>(event_end - event_start).count()));
+    if (collect_latency) {
+      latencies.push_back(static_cast<std::uint64_t>(
+          std::chrono::duration_cast<std::chrono::nanoseconds>(event_end - event_start).count()));
+    }
   }
   const auto end = Clock::now();
 
@@ -599,24 +642,50 @@ RunStats median_run(std::vector<RunStats> runs) {
   return runs[runs.size() / 2];
 }
 
+void calibrate_clock() {
+  constexpr std::size_t kSamples = 100000;
+  std::vector<std::uint64_t> samples;
+  samples.reserve(kSamples);
+  for (std::size_t index = 0; index < kSamples; ++index) {
+    const auto start = Clock::now();
+    const auto end = Clock::now();
+    samples.push_back(static_cast<std::uint64_t>(
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count()));
+  }
+  std::sort(samples.begin(), samples.end());
+  std::cout << "mode: clock-calibration\n"
+            << "samples: " << samples.size() << "\n"
+            << "p50: " << percentile_ns(samples, 50, 100) << " ns\n"
+            << "p99: " << percentile_ns(samples, 99, 100) << " ns\n"
+            << "p999: " << percentile_ns(samples, 999, 1000) << " ns\n";
+}
+
 void print_round(std::size_t round, const RunStats& stats) {
   std::cout << "round " << round << ": " << std::fixed << std::setprecision(6) << stats.seconds << " s"
              << "  " << std::setprecision(2) << events_per_second(stats) << " ev/s"
              << "  " << ns_per_event(stats) << " ns/ev"
-             << "  p50=" << stats.p50_ns << " ns"
-             << "  p99=" << stats.p99_ns << " ns"
-             << "  p999=" << stats.p999_ns << " ns"
+             << "  latency_samples=" << stats.latency_samples;
+  if (stats.latency_samples != 0) {
+    std::cout << "  p50=" << stats.p50_ns << " ns"
+              << "  p99=" << stats.p99_ns << " ns"
+              << "  p999=" << stats.p999_ns << " ns";
+  }
+  std::cout
              << "  trades=" << stats.trades << " traded_qty=" << stats.traded_qty
-            << " rejected=" << stats.rejected_requests << " live=" << stats.live_orders << '\n';
+             << " rejected=" << stats.rejected_requests << " live=" << stats.live_orders << '\n';
 }
 
 void print_summary(const RunStats& stats) {
   std::cout << "median : " << std::fixed << std::setprecision(6) << stats.seconds << " s"
              << "  " << std::setprecision(2) << events_per_second(stats) << " ev/s"
              << "  " << ns_per_event(stats) << " ns/ev"
-             << "  p50=" << stats.p50_ns << " ns"
-             << "  p99=" << stats.p99_ns << " ns"
-             << "  p999=" << stats.p999_ns << " ns"
+             << "  latency_samples=" << stats.latency_samples;
+  if (stats.latency_samples != 0) {
+    std::cout << "  p50=" << stats.p50_ns << " ns"
+              << "  p99=" << stats.p99_ns << " ns"
+              << "  p999=" << stats.p999_ns << " ns";
+  }
+  std::cout
              << "  trades=" << stats.trades << " traded_qty=" << stats.traded_qty
             << " rejected=" << stats.rejected_requests << " live=" << stats.live_orders << '\n';
 }
@@ -627,12 +696,16 @@ void print_generated_header(const BenchmarkConfig& config, const WorkloadStream&
   std::cout << "seed: " << config.seed << "\n";
   std::cout << "setup_events: " << stream.setup.size() << "\n";
   std::cout << "timed_events: " << stream.timed.size() << "\n";
+  std::cout << "latency: " << (config.collect_latency ? "enabled" : "disabled") << "\n";
+  std::cout << "trade_buffer: " << (config.reuse_trades ? "reused" : "accumulated") << "\n";
 }
 
 void print_file_header(const BenchmarkConfig& config, std::size_t event_count) {
   std::cout << "mode: " << (config.engine_only ? "file-engine-only" : "file-parse+engine") << "\n";
   std::cout << "file: " << config.file_path << "\n";
   std::cout << "timed_events: " << event_count << "\n";
+  std::cout << "latency: " << (config.collect_latency ? "enabled" : "disabled") << "\n";
+  std::cout << "trade_buffer: " << (config.reuse_trades ? "reused" : "accumulated") << "\n";
 }
 
 }  // namespace
@@ -640,6 +713,11 @@ void print_file_header(const BenchmarkConfig& config, std::size_t event_count) {
 int main(int argc, char** argv) {
   try {
     const BenchmarkConfig config = parse_args(argc, argv);
+
+    if (config.calibrate_clock) {
+      calibrate_clock();
+      return 0;
+    }
 
     if (config.event_count != 0) {
       const WorkloadStream stream = build_workload(*config.workload, config.event_count, config.seed);
@@ -651,7 +729,7 @@ int main(int argc, char** argv) {
       std::vector<RunStats> runs;
       runs.reserve(config.rounds);
       for (std::size_t round = 0; round < config.rounds; ++round) {
-        runs.push_back(run_engine(stream));
+        runs.push_back(run_engine(stream, config.collect_latency, config.reuse_trades));
         print_round(round + 1, runs.back());
       }
       print_summary(median_run(runs));
@@ -672,7 +750,7 @@ int main(int argc, char** argv) {
       std::vector<RunStats> runs;
       runs.reserve(config.rounds);
       for (std::size_t round = 0; round < config.rounds; ++round) {
-        runs.push_back(run_engine(stream));
+        runs.push_back(run_engine(stream, config.collect_latency, config.reuse_trades));
         print_round(round + 1, runs.back());
       }
       print_summary(median_run(runs));
@@ -689,7 +767,8 @@ int main(int argc, char** argv) {
     std::vector<RunStats> runs;
     runs.reserve(config.rounds);
     for (std::size_t round = 0; round < config.rounds; ++round) {
-      runs.push_back(run_parse_and_engine(config.file_path));
+      runs.push_back(run_parse_and_engine(config.file_path, config.collect_latency,
+                                          config.reuse_trades));
       print_round(round + 1, runs.back());
     }
     print_summary(median_run(runs));
