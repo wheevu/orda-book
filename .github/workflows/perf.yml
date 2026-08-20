@@ -1,0 +1,53 @@
+name: Linux perf profile
+
+on:
+  workflow_dispatch:
+    inputs:
+      backend:
+        description: Backend to profile
+        required: true
+        default: baseline
+        type: choice
+        options:
+          - baseline
+          - pooled
+          - ladder
+      workload:
+        description: Generated workload
+        required: true
+        default: modify-heavy
+        type: choice
+        options:
+          - add-only
+          - cross-heavy
+          - partial-fill
+          - sweep
+          - cancel-heavy
+          - modify-heavy
+
+jobs:
+  perf:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install perf
+        run: sudo apt-get update && sudo apt-get install -y linux-tools-common linux-tools-generic
+      - name: Record environment
+        run: |
+          {
+            uname -a
+            lscpu
+            cmake --version
+            perf --version
+          } > perf-environment.txt
+      - name: Run counter profile
+        run: ./scripts/profile_perf.sh "${{ inputs.backend }}" "${{ inputs.workload }}" 200000 > perf-run.txt 2> perf-stat.txt
+      - name: Upload perf output
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-${{ inputs.backend }}-${{ inputs.workload }}
+          path: |
+            perf-environment.txt
+            perf-run.txt
+            perf-stat.txt

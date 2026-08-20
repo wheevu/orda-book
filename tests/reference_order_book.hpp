@@ -44,6 +44,8 @@ class OrderBook {
   lob::Quantity match_incoming(lob::OrderId incoming_order_id, lob::Side incoming_side,
                                lob::Price incoming_price, lob::Quantity incoming_qty,
                                std::vector<lob::Trade>& trades);
+  lob::Quantity max_crossing_qty(lob::Side incoming_side, lob::Price incoming_price,
+                                 lob::Quantity incoming_qty) const;
   bool contains(lob::OrderId order_id) const;
   bool remove_order(lob::OrderId order_id);
   void add_resting_order(lob::OrderId order_id, lob::Side side, lob::Price price,

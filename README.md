@@ -5,6 +5,8 @@ orda-book is a small single-threaded limit order book in C++17.
 It matches limit orders using price-time priority, supports offline replay, and
 measures both throughput and per-event latency on deterministic workloads.
 
+![orda-book architecture and event flow](docs/ARCHITECTURE_OVERVIEW.svg)
+
 ## Quickstart
 
 Requirements: CMake 3.20 or newer and a C++17 compiler.
@@ -131,6 +133,18 @@ positive quantities, non-crossing state, live-order counts, and valid trades.
   and smoke commands.
 - [`docs/INGRESS_BOUNDARY_DESIGN.md`](docs/INGRESS_BOUNDARY_DESIGN.md): the
   proposed bounded ingress-to-matching boundary.
+- [`docs/ALLOCATION_RESULTS.md`](docs/ALLOCATION_RESULTS.md): measured event
+  path allocation counts for all three backends.
+- [`docs/PERF_PROFILING.md`](docs/PERF_PROFILING.md): Linux `perf` counters,
+  call graphs, and environment recording.
+- [`docs/INGRESS_RESULTS.md`](docs/INGRESS_RESULTS.md): bounded queue capacity
+  sweep and queue-delay observations.
+- [`docs/TAIL_LATENCY_RESULTS.md`](docs/TAIL_LATENCY_RESULTS.md): controlled
+  depth sweep and backend tail-latency observations.
+- [`docs/BACKEND_DECISION.md`](docs/BACKEND_DECISION.md): backend selection
+  decision and evidence thresholds.
+- [`docs/DEVELOPMENT_LOG.md`](docs/DEVELOPMENT_LOG.md): milestone history,
+  interpretation, and remaining evidence gaps.
 
 ## Limitations
 

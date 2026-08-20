@@ -1,4 +1,6 @@
+#include "ladder_order_book.hpp"
 #include "order_book.hpp"
+#include "pooled_order_book.hpp"
 #include "test_framework.hpp"
 
 #include <cstdint>
@@ -45,6 +47,49 @@ TEST_CASE(maximum_valid_values_remain_observable) {
            static_cast<int>(lob::BookError::None));
   CHECK_EQ(book.top_of_book(lob::Side::Bid)->price, max_price);
   CHECK_EQ(book.top_of_book(lob::Side::Bid)->qty, max_qty);
+}
+
+TEST_CASE(quantity_overflow_rejection_preserves_the_existing_level) {
+  lob::OrderBook book;
+  std::vector<lob::Trade> trades;
+  const lob::Quantity max_qty = std::numeric_limits<lob::Quantity>::max();
+
+  CHECK_EQ(static_cast<int>(book.add_order(1, lob::Side::Bid, 100, max_qty, trades)),
+           static_cast<int>(lob::BookError::None));
+  CHECK_EQ(static_cast<int>(book.add_order(2, lob::Side::Bid, 100, 1, trades)),
+           static_cast<int>(lob::BookError::QuantityOverflow));
+  CHECK_EQ(book.live_order_count(), static_cast<std::size_t>(1));
+  CHECK_EQ(book.top_of_book(lob::Side::Bid)->qty, max_qty);
+  CHECK_TRUE(trades.empty());
+}
+
+template <typename Engine>
+void check_quantity_overflow_uses_actual_crossing_quantity() {
+  Engine book;
+  book.reserve_orders(8);
+  std::vector<lob::Trade> trades;
+  const lob::Quantity max_qty = std::numeric_limits<lob::Quantity>::max();
+
+  CHECK_EQ(static_cast<int>(book.add_order(1, lob::Side::Ask, 100, max_qty - 1, trades)),
+           static_cast<int>(lob::BookError::None));
+  CHECK_EQ(static_cast<int>(book.add_order(2, lob::Side::Bid, 100, max_qty - 1, trades)),
+           static_cast<int>(lob::BookError::None));
+  CHECK_EQ(book.stats().traded_qty, max_qty - 1);
+
+  CHECK_EQ(static_cast<int>(book.add_order(3, lob::Side::Bid, 1, max_qty, trades)),
+           static_cast<int>(lob::BookError::None));
+  CHECK_EQ(book.top_of_book(lob::Side::Bid)->qty, max_qty);
+
+  CHECK_EQ(static_cast<int>(book.add_order(4, lob::Side::Ask, 1, 2, trades)),
+           static_cast<int>(lob::BookError::QuantityOverflow));
+  CHECK_EQ(book.top_of_book(lob::Side::Bid)->qty, max_qty);
+  CHECK_EQ(book.stats().traded_qty, max_qty - 1);
+}
+
+TEST_CASE(quantity_overflow_uses_actual_crossing_quantity_for_all_backends) {
+  check_quantity_overflow_uses_actual_crossing_quantity<lob::OrderBook>();
+  check_quantity_overflow_uses_actual_crossing_quantity<lob::PooledOrderBook>();
+  check_quantity_overflow_uses_actual_crossing_quantity<lob::LadderOrderBook>();
 }
 
 TEST_CASE(thousands_of_orders_at_one_price_preserve_fifo_and_cancel) {

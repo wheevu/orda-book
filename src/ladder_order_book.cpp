@@ -1,4 +1,5 @@
 #include "ladder_order_book.hpp"
+#include "quantity_arithmetic.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -108,6 +109,53 @@ bool LadderOrderBook::crosses(Side incoming_side, Price incoming_price,
                                     : incoming_price <= resting_price;
 }
 
+Quantity LadderOrderBook::max_crossing_qty(Side incoming_side, Price incoming_price,
+                                           Quantity incoming_qty) const {
+  Quantity crossing_qty = 0;
+  const auto add_level_qty = [&crossing_qty, incoming_qty](Quantity level_qty) {
+    const Quantity remaining = incoming_qty - crossing_qty;
+    crossing_qty += std::min(remaining, level_qty);
+  };
+  if (incoming_side == Side::Bid) {
+    for (std::size_t word = 0; word < ask_word_occupied_.size(); ++word) {
+      std::uint64_t word_bits = ask_word_occupied_[word];
+      while (word_bits != 0) {
+        const std::size_t occupied_word =
+            word * 64U + static_cast<std::size_t>(__builtin_ctzll(word_bits));
+        std::uint64_t level_bits = ask_occupied_[occupied_word];
+        while (level_bits != 0) {
+          const std::size_t index =
+              occupied_word * 64U + static_cast<std::size_t>(__builtin_ctzll(level_bits));
+          if (!crosses(incoming_side, incoming_price, levels_[index].price)) return crossing_qty;
+          add_level_qty(levels_[index].total_qty);
+          if (crossing_qty == incoming_qty) return crossing_qty;
+          level_bits &= level_bits - 1U;
+        }
+        word_bits &= word_bits - 1U;
+      }
+    }
+  } else {
+    for (std::size_t word = bid_word_occupied_.size(); word > 0; --word) {
+      std::uint64_t word_bits = bid_word_occupied_[word - 1U];
+      while (word_bits != 0) {
+        const std::size_t occupied_word = (word - 1U) * 64U +
+                                          (63U - static_cast<std::size_t>(__builtin_clzll(word_bits)));
+        std::uint64_t level_bits = bid_occupied_[occupied_word];
+        while (level_bits != 0) {
+          const std::size_t index = occupied_word * 64U +
+                                    (63U - static_cast<std::size_t>(__builtin_clzll(level_bits)));
+          if (!crosses(incoming_side, incoming_price, levels_[index].price)) return crossing_qty;
+          add_level_qty(levels_[index].total_qty);
+          if (crossing_qty == incoming_qty) return crossing_qty;
+          level_bits &= level_bits - 1U;
+        }
+        word_bits &= word_bits - 1U;
+      }
+    }
+  }
+  return crossing_qty;
+}
+
 Quantity LadderOrderBook::match_incoming(OrderId incoming_order_id, Side incoming_side,
                                          Price incoming_price, Quantity incoming_qty,
                                          std::vector<Trade>& trades) {
@@ -158,6 +206,14 @@ BookError LadderOrderBook::add_order(OrderId order_id, Side side, Price price, Q
     ++stats_.rejected_requests;
     return BookError::DuplicateOrderId;
   }
+  const PriceLevel& level = levels_[index_for(price)];
+  const Quantity crossing_qty = max_crossing_qty(side, price, qty);
+  const Quantity resting_qty = qty - crossing_qty;
+  if (quantity_add_would_overflow(level.total_qty, resting_qty) ||
+      quantity_add_would_overflow(stats_.traded_qty, crossing_qty)) {
+    ++stats_.rejected_requests;
+    return BookError::QuantityOverflow;
+  }
   const Quantity remaining = match_incoming(order_id, side, price, qty, trades);
   if (remaining > 0) {
     add_resting_order(order_id, side, price, remaining);
@@ -191,6 +247,18 @@ BookError LadderOrderBook::modify_order(OrderId order_id, Price new_price, Quant
   if (!valid_qty(new_qty)) {
     ++stats_.rejected_requests;
     return BookError::InvalidQuantity;
+  }
+  Quantity existing_level_qty = levels_[index_for(new_price)].total_qty;
+  const OrderSnapshot& current = *it->second.order_it;
+  if (current.price == new_price) {
+    existing_level_qty -= current.qty;
+  }
+  const Quantity crossing_qty = max_crossing_qty(current.side, new_price, new_qty);
+  const Quantity resting_qty = new_qty - crossing_qty;
+  if (quantity_add_would_overflow(existing_level_qty, resting_qty) ||
+      quantity_add_would_overflow(stats_.traded_qty, crossing_qty)) {
+    ++stats_.rejected_requests;
+    return BookError::QuantityOverflow;
   }
   const Side side = it->second.order_it->side;
   remove_order(order_id, it->second);

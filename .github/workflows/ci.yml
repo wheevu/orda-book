@@ -45,3 +45,35 @@ jobs:
         run: cmake --build build --parallel
       - name: Test
         run: ctest --test-dir build --output-on-failure
+
+  thread-sanitizer:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: >-
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_CXX_FLAGS=-fsanitize=thread
+          -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=thread
+      - name: Build
+        run: cmake --build build --parallel
+      - name: Test
+        run: ctest --test-dir build --output-on-failure
+      - name: Ingress smoke test
+        run: ./build/orda_ingress_benchmark --file data/sample_events.txt --capacity 2 --rounds 3
+
+  fuzz:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: >-
+          cmake -S . -B build-fuzz -DLOB_BUILD_FUZZER=ON
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_CXX_FLAGS=-fsanitize=fuzzer,address,undefined
+          -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=fuzzer,address,undefined
+      - name: Build fuzzer
+        run: cmake --build build-fuzz --target orda_fuzz --parallel
+      - name: Fuzz smoke test
+        run: ./build-fuzz/orda_fuzz -runs=10000 -seed=305419896

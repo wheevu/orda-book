@@ -74,6 +74,8 @@ class PooledOrderBook {
   void remove_order(OrderId order_id, SlotIndex slot);
   Quantity match_incoming(OrderId incoming_order_id, Side incoming_side, Price incoming_price,
                           Quantity incoming_qty, std::vector<Trade>& trades);
+  Quantity max_crossing_qty(Side incoming_side, Price incoming_price,
+                            Quantity incoming_qty) const;
   bool crosses(Side incoming_side, Price incoming_price, Price resting_price) const;
 };
 

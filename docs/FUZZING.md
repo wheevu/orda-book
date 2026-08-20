@@ -27,10 +27,8 @@ The fuzzer maps arbitrary bytes into add, cancel, and modify histories.
 It compares each event's error, trades, order-level book state, live-order
 count, and cumulative statistics.
 
-The target uses bounded positive prices and quantities so the first campaign
-focuses on state transitions rather than integer-overflow policy.
-
-Overflow behavior remains a separate M5 boundary task.
+The target uses bounded positive prices and quantities for its first campaign,
+while dedicated abuse tests cover the quantity-overflow contract.
 
 ## Failure handling
 

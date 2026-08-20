@@ -1,0 +1,107 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" role="img" aria-labelledby="architecture-title architecture-description">
+  <title id="architecture-title">orda-book architecture and event flow</title>
+  <desc id="architecture-description">Offline replay and bounded ingress feed typed events into a single-threaded matching engine, which produces trades and book state while comparing three storage backends.</desc>
+  <defs>
+    <style>
+      .canvas { fill: #fbfaf7; }
+      .ink { fill: #20262d; }
+      .muted { fill: #5e6871; }
+      .title { font: 700 28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: -0.02em; }
+      .subtitle { font: 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .group { fill: #efe9df; stroke: #d7cec1; stroke-width: 1.5; }
+      .group-label { fill: #93643a; font: 700 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0.16em; }
+      .node { fill: #ffffff; stroke: #c8c1b8; stroke-width: 1.5; }
+      .node-accent { fill: #fffaf3; stroke: #93643a; stroke-width: 2; }
+      .node-title { fill: #20262d; font: 700 16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .node-detail { fill: #5e6871; font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .number { fill: #93643a; font: 700 12px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; letter-spacing: 0.08em; }
+      .flow { fill: none; stroke: #93643a; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow); }
+      .flow-muted { fill: none; stroke: #b4a99b; stroke-width: 2; stroke-dasharray: 6 6; stroke-linecap: round; marker-end: url(#arrow-muted); }
+    </style>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#93643a" />
+    </marker>
+    <marker id="arrow-muted" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#b4a99b" />
+    </marker>
+  </defs>
+
+  <rect class="canvas" width="1200" height="700" rx="18" />
+
+  <text class="title ink" x="56" y="58">orda-book</text>
+  <text class="subtitle muted" x="56" y="86">Typed events in, price-time matching at the center, observable state and trades out.</text>
+
+  <rect class="group" x="42" y="128" width="250" height="468" rx="16" />
+  <text class="group-label" x="68" y="162">EVENT SOURCES</text>
+
+  <rect class="node" x="68" y="190" width="198" height="110" rx="12" />
+  <text class="number" x="88" y="218">01</text>
+  <text class="node-title" x="88" y="246">Event file</text>
+  <text class="node-detail" x="88" y="270">Offline replay and</text>
+  <text class="node-detail" x="88" y="289">deterministic benchmarks</text>
+
+  <rect class="node" x="68" y="378" width="198" height="110" rx="12" />
+  <text class="number" x="88" y="406">02</text>
+  <text class="node-title" x="88" y="434">Producer</text>
+  <text class="node-detail" x="88" y="458">Typed feed events at the</text>
+  <text class="node-detail" x="88" y="477">bounded ingress boundary</text>
+
+  <rect class="group" x="326" y="128" width="250" height="468" rx="16" />
+  <text class="group-label" x="352" y="162">INTAKE</text>
+
+  <rect class="node" x="352" y="190" width="198" height="110" rx="12" />
+  <text class="number" x="372" y="218">03</text>
+  <text class="node-title" x="372" y="246">Event parser</text>
+  <text class="node-detail" x="372" y="270">Text and CSV-style</text>
+  <text class="node-detail" x="372" y="289">records become Event</text>
+
+  <rect class="node" x="352" y="378" width="198" height="110" rx="12" />
+  <text class="number" x="372" y="406">04</text>
+  <text class="node-title" x="372" y="434">SPSC queue</text>
+  <text class="node-detail" x="372" y="458">Bounded handoff with</text>
+  <text class="node-detail" x="372" y="477">explicit full behavior</text>
+
+  <rect class="group" x="610" y="128" width="320" height="468" rx="16" />
+  <text class="group-label" x="636" y="162">MATCHING CORE</text>
+
+  <rect class="node-accent" x="636" y="190" width="268" height="174" rx="12" />
+  <text class="number" x="656" y="218">05</text>
+  <text class="node-title" x="656" y="246">Single-threaded engine</text>
+  <text class="node-detail" x="656" y="273">Price-time priority</text>
+  <text class="node-detail" x="656" y="295">Add, cancel, and modify</text>
+  <text class="node-detail" x="656" y="317">Matching, trades, and stats</text>
+  <path class="flow-muted" d="M 656 339 H 884" />
+  <text class="node-detail" x="656" y="357">One owner mutates book state</text>
+
+  <rect class="node" x="636" y="414" width="268" height="136" rx="12" />
+  <text class="number" x="656" y="442">06</text>
+  <text class="node-title" x="656" y="470">Storage backends</text>
+  <text class="node-detail" x="656" y="495">baseline map + list</text>
+  <text class="node-detail" x="656" y="516">pooled order slots</text>
+  <text class="node-detail" x="656" y="537">bounded bitmap ladder</text>
+
+  <rect class="group" x="964" y="128" width="194" height="468" rx="16" />
+  <text class="group-label" x="990" y="162">OUTPUTS</text>
+
+  <rect class="node" x="990" y="190" width="142" height="110" rx="12" />
+  <text class="number" x="1008" y="218">07</text>
+  <text class="node-title" x="1008" y="246">Trades</text>
+  <text class="node-detail" x="1008" y="270">Matched fills</text>
+  <text class="node-detail" x="1008" y="289">and quantities</text>
+
+  <rect class="node" x="990" y="378" width="142" height="110" rx="12" />
+  <text class="number" x="1008" y="406">08</text>
+  <text class="node-title" x="1008" y="434">Book state</text>
+  <text class="node-detail" x="1008" y="458">Snapshots, stats,</text>
+  <text class="node-detail" x="1008" y="477">and benchmark output</text>
+
+  <path class="flow" d="M 266 245 H 352" />
+  <path class="flow" d="M 266 433 H 352" />
+  <path class="flow" d="M 550 245 H 636" />
+  <path class="flow" d="M 550 433 H 594 V 277 H 636" />
+  <path class="flow-muted" d="M 770 364 V 414" />
+  <path class="flow" d="M 904 245 H 990" />
+  <path class="flow" d="M 904 433 H 990" />
+
+  <text class="subtitle muted" x="56" y="638">Networking, persistence, and concurrent matching remain outside this study.</text>
+</svg>

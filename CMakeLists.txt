@@ -10,6 +10,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(LOB_ENABLE_ASAN "Enable address sanitizer" OFF)
 option(LOB_BUILD_FUZZER "Build the libFuzzer differential target" OFF)
 
+if(LOB_ENABLE_ASAN)
+  add_compile_options(-fsanitize=address -fno-omit-frame-pointer)
+  add_link_options(-fsanitize=address)
+endif()
+
 add_library(orda_core
   src/order_book.cpp
   src/pooled_order_book.cpp
@@ -27,11 +32,6 @@ target_compile_options(orda_core PRIVATE
   -Wshadow
 )
 
-if(LOB_ENABLE_ASAN)
-  target_compile_options(orda_core PRIVATE -fsanitize=address -fno-omit-frame-pointer)
-  target_link_options(orda_core PRIVATE -fsanitize=address)
-endif()
-
 add_executable(orda_replay src/replay_main.cpp)
 target_link_libraries(orda_replay PRIVATE orda_core)
 
@@ -40,6 +40,12 @@ target_link_libraries(orda_benchmark PRIVATE orda_core)
 
 add_executable(orda_ingress_benchmark src/ingress_benchmark_main.cpp)
 target_link_libraries(orda_ingress_benchmark PRIVATE orda_core Threads::Threads)
+
+add_executable(orda_allocation_benchmark src/allocation_benchmark_main.cpp)
+target_link_libraries(orda_allocation_benchmark PRIVATE orda_core)
+
+add_executable(orda_tail_benchmark src/tail_benchmark_main.cpp)
+target_link_libraries(orda_tail_benchmark PRIVATE orda_core)
 
 add_executable(orda_tests
   tests/test_main.cpp

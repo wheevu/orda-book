@@ -1,4 +1,5 @@
 #include "reference_order_book.hpp"
+#include "quantity_arithmetic.hpp"
 
 #include <algorithm>
 
@@ -8,6 +9,33 @@ bool OrderBook::crosses(lob::Side incoming_side, lob::Price incoming_price,
                         lob::Price resting_price) {
   return incoming_side == lob::Side::Bid ? incoming_price >= resting_price
                                          : incoming_price <= resting_price;
+}
+
+lob::Quantity OrderBook::max_crossing_qty(lob::Side incoming_side, lob::Price incoming_price,
+                                          lob::Quantity incoming_qty) const {
+  lob::Quantity crossing_qty = 0;
+  const auto add_level_qty = [&crossing_qty, incoming_qty](lob::Quantity level_qty) {
+    const lob::Quantity remaining = incoming_qty - crossing_qty;
+    crossing_qty += std::min(remaining, level_qty);
+  };
+  if (incoming_side == lob::Side::Bid) {
+    for (const auto& [price, orders] : asks_) {
+      if (!crosses(incoming_side, incoming_price, price)) break;
+      for (const Order& order : orders) {
+        add_level_qty(order.qty);
+        if (crossing_qty == incoming_qty) return crossing_qty;
+      }
+    }
+  } else {
+    for (const auto& [price, orders] : bids_) {
+      if (!crosses(incoming_side, incoming_price, price)) break;
+      for (const Order& order : orders) {
+        add_level_qty(order.qty);
+        if (crossing_qty == incoming_qty) return crossing_qty;
+      }
+    }
+  }
+  return crossing_qty;
 }
 
 bool OrderBook::contains(lob::OrderId order_id) const {
@@ -129,6 +157,29 @@ lob::BookError OrderBook::add_order(lob::OrderId order_id, lob::Side side, lob::
     ++stats_.rejected_requests;
     return lob::BookError::DuplicateOrderId;
   }
+  lob::Quantity level_qty = 0;
+  if (side == lob::Side::Bid) {
+    const auto level_it = bids_.find(price);
+    if (level_it != bids_.end()) {
+      for (const Order& order : level_it->second) {
+        level_qty += order.qty;
+      }
+    }
+  } else {
+    const auto level_it = asks_.find(price);
+    if (level_it != asks_.end()) {
+      for (const Order& order : level_it->second) {
+        level_qty += order.qty;
+      }
+    }
+  }
+  const lob::Quantity crossing_qty = max_crossing_qty(side, price, qty);
+  const lob::Quantity resting_qty = qty - crossing_qty;
+  if (lob::quantity_add_would_overflow(level_qty, resting_qty) ||
+      lob::quantity_add_would_overflow(stats_.traded_qty, crossing_qty)) {
+    ++stats_.rejected_requests;
+    return lob::BookError::QuantityOverflow;
+  }
 
   const lob::Quantity remaining = match_incoming(order_id, side, price, qty, trades);
   if (remaining > 0) {
@@ -179,6 +230,34 @@ lob::BookError OrderBook::modify_order(lob::OrderId order_id, lob::Price new_pri
   if (!find_side(bids_) && !find_side(asks_)) {
     ++stats_.rejected_requests;
     return lob::BookError::UnknownOrderId;
+  }
+
+  lob::Quantity existing_level_qty = 0;
+  if (side == lob::Side::Bid) {
+    const auto level_it = bids_.find(new_price);
+    if (level_it != bids_.end()) {
+      for (const Order& order : level_it->second) {
+        if (order.order_id != order_id) {
+          existing_level_qty += order.qty;
+        }
+      }
+    }
+  } else {
+    const auto level_it = asks_.find(new_price);
+    if (level_it != asks_.end()) {
+      for (const Order& order : level_it->second) {
+        if (order.order_id != order_id) {
+          existing_level_qty += order.qty;
+        }
+      }
+    }
+  }
+  const lob::Quantity crossing_qty = max_crossing_qty(side, new_price, new_qty);
+  const lob::Quantity resting_qty = new_qty - crossing_qty;
+  if (lob::quantity_add_would_overflow(existing_level_qty, resting_qty) ||
+      lob::quantity_add_would_overflow(stats_.traded_qty, crossing_qty)) {
+    ++stats_.rejected_requests;
+    return lob::BookError::QuantityOverflow;
   }
 
   remove_order(order_id);

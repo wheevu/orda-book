@@ -23,6 +23,7 @@ After every generated event:
 - every visible price level contains at least one order;
 - the sum of level order counts equals `live_order_count()`;
 - every emitted trade has a positive price and quantity.
+- quantity overflow is rejected without changing book state.
 
 The engine also checks that invalid modify requests do not remove the existing
 order.
@@ -87,8 +88,7 @@ cases before printing its final result.
 
 The generated histories do not model every possible event distribution.
 
-They do not test integer overflow, allocator failure, process crashes, or
-concurrent access.
+They do not test allocator failure, process crashes, or concurrent access.
 
 Those boundaries require separate tests and should not be implied by this
 campaign.
