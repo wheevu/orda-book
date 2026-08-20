@@ -5,6 +5,36 @@ orda-book is a small single-threaded limit order book in C++17.
 It matches limit orders using price-time priority, supports offline replay, and
 measures both throughput and per-event latency on deterministic workloads.
 
+## Measured snapshot
+
+Release build on commit `3c79930`, measured on a MacBookAir10,1 with Apple
+Clang 21.0.0, arm64, 200,000 generated events, three rounds, and seed
+`305419896`.
+
+| backend | cross-heavy throughput | modify-heavy p99 | allocations/event |
+| --- | ---: | ---: | ---: |
+| baseline | 10.2M ev/s | 375 ns | 1.60 |
+| pooled | 18.3M ev/s | 292 ns | 0.801 |
+| ladder | 8.12M ev/s | 292 ns | 1.60 |
+
+Throughput uses `--no-latency --reuse-trades`.
+
+Latency uses `--reuse-trades` with timestamp collection enabled.
+
+Allocation counts come from the separate 500,000-event allocation campaign.
+
+These are local comparison points, not production exchange performance claims.
+
+See [`docs/BENCHMARK_RESULTS.md`](docs/BENCHMARK_RESULTS.md) for the full
+workload matrix and measurement details.
+
+| verification | status |
+| --- | --- |
+| Release CTest | passed locally |
+| AddressSanitizer CTest | passed locally |
+| ThreadSanitizer | configured in Linux CI |
+| Differential libFuzzer | configured in Linux CI; unavailable in the local macOS toolchain |
+
 ![orda-book architecture and event flow](docs/ARCHITECTURE_OVERVIEW.svg)
 
 ## Quickstart
