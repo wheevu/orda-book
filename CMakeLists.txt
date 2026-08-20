@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.20)
 project(orda-book LANGUAGES CXX)
 
+find_package(Threads REQUIRED)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -36,16 +38,21 @@ target_link_libraries(orda_replay PRIVATE orda_core)
 add_executable(orda_benchmark src/benchmark_main.cpp)
 target_link_libraries(orda_benchmark PRIVATE orda_core)
 
+add_executable(orda_ingress_benchmark src/ingress_benchmark_main.cpp)
+target_link_libraries(orda_ingress_benchmark PRIVATE orda_core Threads::Threads)
+
 add_executable(orda_tests
   tests/test_main.cpp
   tests/order_book_tests.cpp
   tests/abuse_tests.cpp
+  tests/spsc_queue_tests.cpp
   tests/property_tests.cpp
   tests/reference_order_book.cpp
   tests/differential_tests.cpp
   tests/replay_tests.cpp
 )
 target_link_libraries(orda_tests PRIVATE orda_core)
+target_link_libraries(orda_tests PRIVATE Threads::Threads)
 
 include(CTest)
 enable_testing()

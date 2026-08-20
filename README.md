@@ -58,6 +58,8 @@ per-event latency collection:
 - FIFO queues within each price level.
 - Experimental preallocated order-slot backend.
 - Experimental bounded price-ladder backend.
+- Bounded single-producer/single-consumer ingress queue.
+- Threaded ingress benchmark with queue-delay percentiles.
 - Order-ID lookup for cancellation and modification.
 - Add, cancel, and cancel-replace modification events.
 - Multi-level matching and trade output.
@@ -127,6 +129,8 @@ positive quantities, non-crossing state, live-order counts, and valid trades.
   assumptions, bitmap discovery, and comparison boundaries.
 - [`docs/FUZZING.md`](docs/FUZZING.md): optional libFuzzer differential target
   and smoke commands.
+- [`docs/INGRESS_BOUNDARY_DESIGN.md`](docs/INGRESS_BOUNDARY_DESIGN.md): the
+  proposed bounded ingress-to-matching boundary.
 
 ## Limitations
 
