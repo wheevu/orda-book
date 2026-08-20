@@ -78,6 +78,7 @@ enum class BookError {
   UnknownOrderId,
   InvalidPrice,
   InvalidQuantity,
+  CapacityExceeded,
 };
 
 inline std::string_view to_string(BookError error) {
@@ -92,6 +93,8 @@ inline std::string_view to_string(BookError error) {
       return "invalid_price";
     case BookError::InvalidQuantity:
       return "invalid_quantity";
+    case BookError::CapacityExceeded:
+      return "capacity_exceeded";
   }
   return "unknown";
 }

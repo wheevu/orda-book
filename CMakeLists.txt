@@ -9,6 +9,7 @@ option(LOB_ENABLE_ASAN "Enable address sanitizer" OFF)
 
 add_library(orda_core
   src/order_book.cpp
+  src/pooled_order_book.cpp
   src/event_parser.cpp
 )
 

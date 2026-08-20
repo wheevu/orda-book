@@ -33,6 +33,10 @@ Run a benchmark:
   --seed 305419896
 ```
 
+Select the experimental pooled backend with `--backend pooled`.
+
+The default is `--backend baseline`.
+
 For a timer-free throughput comparison, reuse the trade buffer and disable
 per-event latency collection:
 
@@ -50,6 +54,7 @@ per-event latency collection:
 
 - Ordered bid and ask price levels.
 - FIFO queues within each price level.
+- Experimental preallocated order-slot backend.
 - Order-ID lookup for cancellation and modification.
 - Add, cancel, and cancel-replace modification events.
 - Multi-level matching and trade output.
@@ -113,6 +118,8 @@ positive quantities, non-crossing state, live-order counts, and valid trades.
   percentile definitions, run rules, and limitations.
 - [`docs/BENCHMARK_RESULTS.md`](docs/BENCHMARK_RESULTS.md): the first measured
   local baseline and its environment metadata.
+- [`docs/ORDER_STORAGE_DESIGN.md`](docs/ORDER_STORAGE_DESIGN.md): the proposed
+  pooled order-slot backend and its equivalence contract.
 
 ## Limitations
 

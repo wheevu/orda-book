@@ -20,6 +20,10 @@ The generated harness currently provides six workload shapes:
 Each generated workload records its seed and separates setup events from timed
 events.
 
+The benchmark supports `--backend baseline` and `--backend pooled`.
+
+The baseline backend is the default.
+
 File mode can measure parsing together with engine processing or run the engine
 against events parsed before the timed rounds.
 
@@ -81,9 +85,10 @@ subtracted from each event.
 2. Record the compiler, operating system, architecture, build flags, Git
    revision, workload, seed, event count, and round count.
 3. Use the same workload and seed when comparing changes.
-4. Run enough events for the p999 sample to be meaningful.
-5. Avoid publishing results from a busy or thermally constrained machine.
-6. Treat the result as a comparison between builds on one environment, not as
+4. Use the same backend capacity and backend mode when comparing changes.
+5. Run enough events for the p999 sample to be meaningful.
+6. Avoid publishing results from a busy or thermally constrained machine.
+7. Treat the result as a comparison between builds on one environment, not as
    an absolute claim about production trading systems.
 
 Example:

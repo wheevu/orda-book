@@ -1,5 +1,6 @@
 #include "event_parser.hpp"
 #include "order_book.hpp"
+#include "pooled_order_book.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -53,6 +54,25 @@ enum class WorkloadKind {
   CancelHeavy,
   ModifyHeavy,
 };
+
+enum class BackendKind {
+  Baseline,
+  Pooled,
+};
+
+std::string_view to_string(BackendKind backend) {
+  return backend == BackendKind::Baseline ? "baseline" : "pooled";
+}
+
+std::optional<BackendKind> parse_backend(std::string_view token) {
+  if (token == "baseline") {
+    return BackendKind::Baseline;
+  }
+  if (token == "pooled") {
+    return BackendKind::Pooled;
+  }
+  return std::nullopt;
+}
 
 std::string_view to_string(WorkloadKind workload) {
   switch (workload) {
@@ -116,6 +136,7 @@ struct BenchmarkConfig {
   std::size_t event_count = 0;
   std::size_t rounds = 5;
   std::uint64_t seed = kDefaultSeed;
+  BackendKind backend = BackendKind::Baseline;
   bool engine_only = false;
   bool collect_latency = true;
   bool reuse_trades = false;
@@ -262,6 +283,14 @@ BenchmarkConfig parse_args(int argc, char** argv) {
     }
     if (arg == "--seed" && i + 1 < argc) {
       config.seed = std::strtoull(argv[++i], nullptr, 10);
+      continue;
+    }
+    if (arg == "--backend" && i + 1 < argc) {
+      const std::optional<BackendKind> backend = parse_backend(argv[++i]);
+      if (!backend.has_value()) {
+        throw std::runtime_error("unknown backend");
+      }
+      config.backend = *backend;
       continue;
     }
     if (arg == "--write-file" && i + 1 < argc) {
@@ -523,8 +552,9 @@ std::uint64_t percentile_ns(const std::vector<std::uint64_t>& sorted_latencies,
   return sorted_latencies[index];
 }
 
+template <typename Engine>
 RunStats make_run_stats(std::size_t setup_events, std::size_t timed_events,
-                        const lob::OrderBook& book,
+                        const Engine& book,
                         std::size_t pre_timed_trade_count, lob::Quantity pre_timed_traded_qty,
                         double seconds, std::vector<std::uint64_t> latencies) {
   std::sort(latencies.begin(), latencies.end());
@@ -542,8 +572,9 @@ RunStats make_run_stats(std::size_t setup_events, std::size_t timed_events,
                   latencies.size()};
 }
 
+template <typename Engine>
 RunStats run_engine(const WorkloadStream& stream, bool collect_latency, bool reuse_trades) {
-  lob::OrderBook book;
+  Engine book;
   book.reserve_orders(stream.setup.size() + stream.timed.size());
   std::vector<lob::Trade> trades;
   trades.reserve((stream.setup.size() + stream.timed.size()) / 2 + 1);
@@ -589,6 +620,7 @@ RunStats run_engine(const WorkloadStream& stream, bool collect_latency, bool reu
                         elapsed.count(), std::move(latencies));
 }
 
+template <typename Engine>
 RunStats run_parse_and_engine(const std::string& file_path, bool collect_latency,
                               bool reuse_trades) {
   const auto start = Clock::now();
@@ -597,7 +629,7 @@ RunStats run_parse_and_engine(const std::string& file_path, bool collect_latency
     throw std::runtime_error("parse failed");
   }
 
-  lob::OrderBook book;
+  Engine book;
   book.reserve_orders(parsed.events.size());
   std::vector<lob::Trade> trades;
   trades.reserve(parsed.events.size() / 2 + 1);
@@ -694,6 +726,7 @@ void print_generated_header(const BenchmarkConfig& config, const WorkloadStream&
   std::cout << "mode: generated-engine\n";
   std::cout << "workload: " << to_string(stream.kind) << "\n";
   std::cout << "seed: " << config.seed << "\n";
+  std::cout << "backend: " << to_string(config.backend) << "\n";
   std::cout << "setup_events: " << stream.setup.size() << "\n";
   std::cout << "timed_events: " << stream.timed.size() << "\n";
   std::cout << "latency: " << (config.collect_latency ? "enabled" : "disabled") << "\n";
@@ -703,6 +736,7 @@ void print_generated_header(const BenchmarkConfig& config, const WorkloadStream&
 void print_file_header(const BenchmarkConfig& config, std::size_t event_count) {
   std::cout << "mode: " << (config.engine_only ? "file-engine-only" : "file-parse+engine") << "\n";
   std::cout << "file: " << config.file_path << "\n";
+  std::cout << "backend: " << to_string(config.backend) << "\n";
   std::cout << "timed_events: " << event_count << "\n";
   std::cout << "latency: " << (config.collect_latency ? "enabled" : "disabled") << "\n";
   std::cout << "trade_buffer: " << (config.reuse_trades ? "reused" : "accumulated") << "\n";
@@ -719,6 +753,22 @@ int main(int argc, char** argv) {
       return 0;
     }
 
+    const auto run_stream = [&config](const WorkloadStream& stream) {
+      if (config.backend == BackendKind::Pooled) {
+        return run_engine<lob::PooledOrderBook>(stream, config.collect_latency,
+                                                config.reuse_trades);
+      }
+      return run_engine<lob::OrderBook>(stream, config.collect_latency, config.reuse_trades);
+    };
+    const auto run_file = [&config](const std::string& file_path) {
+      if (config.backend == BackendKind::Pooled) {
+        return run_parse_and_engine<lob::PooledOrderBook>(file_path, config.collect_latency,
+                                                          config.reuse_trades);
+      }
+      return run_parse_and_engine<lob::OrderBook>(file_path, config.collect_latency,
+                                                  config.reuse_trades);
+    };
+
     if (config.event_count != 0) {
       const WorkloadStream stream = build_workload(*config.workload, config.event_count, config.seed);
       if (!config.write_file_path.empty()) {
@@ -729,7 +779,7 @@ int main(int argc, char** argv) {
       std::vector<RunStats> runs;
       runs.reserve(config.rounds);
       for (std::size_t round = 0; round < config.rounds; ++round) {
-        runs.push_back(run_engine(stream, config.collect_latency, config.reuse_trades));
+        runs.push_back(run_stream(stream));
         print_round(round + 1, runs.back());
       }
       print_summary(median_run(runs));
@@ -750,7 +800,7 @@ int main(int argc, char** argv) {
       std::vector<RunStats> runs;
       runs.reserve(config.rounds);
       for (std::size_t round = 0; round < config.rounds; ++round) {
-        runs.push_back(run_engine(stream, config.collect_latency, config.reuse_trades));
+        runs.push_back(run_stream(stream));
         print_round(round + 1, runs.back());
       }
       print_summary(median_run(runs));
@@ -767,8 +817,7 @@ int main(int argc, char** argv) {
     std::vector<RunStats> runs;
     runs.reserve(config.rounds);
     for (std::size_t round = 0; round < config.rounds; ++round) {
-      runs.push_back(run_parse_and_engine(config.file_path, config.collect_latency,
-                                          config.reuse_trades));
+      runs.push_back(run_file(config.file_path));
       print_round(round + 1, runs.back());
     }
     print_summary(median_run(runs));

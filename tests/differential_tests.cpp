@@ -1,4 +1,5 @@
 #include "order_book.hpp"
+#include "pooled_order_book.hpp"
 #include "reference_order_book.hpp"
 #include "test_framework.hpp"
 
@@ -122,16 +123,17 @@ void compare_stats(const lob::EngineStats& actual, const lob::EngineStats& expec
   CHECK_EQ(actual.traded_qty, expected.traded_qty);
 }
 
-void compare_after_event(const lob::OrderBook& actual,
-                         const reference_lob::OrderBook& expected) {
+template <typename Engine>
+void compare_after_event(const Engine& actual, const reference_lob::OrderBook& expected) {
   compare_orders(actual.orders(lob::Side::Bid), expected.orders(lob::Side::Bid));
   compare_orders(actual.orders(lob::Side::Ask), expected.orders(lob::Side::Ask));
   CHECK_EQ(actual.live_order_count(), expected.live_order_count());
   compare_stats(actual.stats(), expected.stats());
 }
 
+template <typename Engine>
 void run_differential_history(const std::vector<lob::Event>& events) {
-  lob::OrderBook actual;
+  Engine actual;
   actual.reserve_orders(events.size());
   reference_lob::OrderBook expected;
 
@@ -150,6 +152,30 @@ void run_differential_history(const std::vector<lob::Event>& events) {
 
 TEST_CASE(differential_engine_matches_reference_across_fixed_histories) {
   for (std::uint64_t seed = 1; seed <= 256; ++seed) {
-    run_differential_history(generate_history(seed, 750));
+    run_differential_history<lob::OrderBook>(generate_history(seed, 750));
   }
+}
+
+TEST_CASE(pooled_engine_matches_reference_across_fixed_histories) {
+  for (std::uint64_t seed = 1; seed <= 64; ++seed) {
+    run_differential_history<lob::PooledOrderBook>(generate_history(seed, 750));
+  }
+}
+
+TEST_CASE(pooled_capacity_rejection_does_not_mutate_the_book) {
+  lob::PooledOrderBook book;
+  book.reserve_orders(1);
+  std::vector<lob::Trade> trades;
+
+  CHECK_EQ(static_cast<int>(book.add_order(1, lob::Side::Bid, 100, 1, trades)),
+           static_cast<int>(lob::BookError::None));
+  CHECK_EQ(static_cast<int>(book.add_order(2, lob::Side::Ask, 100, 1, trades)),
+           static_cast<int>(lob::BookError::CapacityExceeded));
+  CHECK_TRUE(trades.empty());
+  CHECK_EQ(book.live_order_count(), static_cast<std::size_t>(1));
+  CHECK_EQ(book.top_of_book(lob::Side::Bid)->qty, 1);
+
+  CHECK_EQ(static_cast<int>(book.cancel_order(1)), static_cast<int>(lob::BookError::None));
+  CHECK_EQ(static_cast<int>(book.add_order(2, lob::Side::Ask, 100, 1, trades)),
+           static_cast<int>(lob::BookError::None));
 }
