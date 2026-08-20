@@ -1,9 +1,7 @@
 #include "order_book.hpp"
 #include "test_framework.hpp"
 
-#include <algorithm>
 #include <cstdint>
-#include <unordered_set>
 #include <vector>
 
 namespace {

@@ -65,6 +65,13 @@ struct LevelSnapshot {
   std::size_t order_count{};
 };
 
+struct OrderSnapshot {
+  OrderId order_id{};
+  Side side{};
+  Price price{};
+  Quantity qty{};
+};
+
 enum class BookError {
   None,
   DuplicateOrderId,

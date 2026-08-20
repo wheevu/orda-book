@@ -236,6 +236,24 @@ std::vector<LevelSnapshot> OrderBook::levels(Side side) const {
   return snapshots;
 }
 
+std::vector<OrderSnapshot> OrderBook::orders(Side side) const {
+  std::vector<OrderSnapshot> snapshots;
+  const auto append_level_orders = [&snapshots](const auto& levels) {
+    for (const auto& [price, level] : levels) {
+      for (const Order& order : level.orders) {
+        snapshots.push_back(OrderSnapshot{order.order_id, order.side, price, order.qty});
+      }
+    }
+  };
+
+  if (side == Side::Bid) {
+    append_level_orders(bids_);
+  } else {
+    append_level_orders(asks_);
+  }
+  return snapshots;
+}
+
 std::string OrderBook::format_book(bool full_depth) const {
   std::ostringstream out;
   out << "ASKS\n";

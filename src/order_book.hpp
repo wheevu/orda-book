@@ -29,6 +29,7 @@ class OrderBook {
 
   [[nodiscard]] std::optional<LevelSnapshot> top_of_book(Side side) const;
   [[nodiscard]] std::vector<LevelSnapshot> levels(Side side) const;
+  [[nodiscard]] std::vector<OrderSnapshot> orders(Side side) const;
   [[nodiscard]] std::string format_book(bool full_depth = true) const;
 
  private:

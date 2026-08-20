@@ -32,6 +32,12 @@ within one price level.
 The level also stores its aggregate quantity so top-of-book queries do not
 need to scan every order.
 
+The `OrderBook::orders` query returns an order-level diagnostic snapshot in
+price and FIFO order.
+
+Replay does not use this query, but the differential test campaign uses it to
+compare the production engine with its independent reference engine.
+
 `order_index_` maps an order ID to its side, price level, and list iterator.
 
 This makes cancel lookup constant-time on average and lets cancellation erase

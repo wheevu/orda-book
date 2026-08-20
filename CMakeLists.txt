@@ -37,6 +37,8 @@ add_executable(orda_tests
   tests/test_main.cpp
   tests/order_book_tests.cpp
   tests/property_tests.cpp
+  tests/reference_order_book.cpp
+  tests/differential_tests.cpp
   tests/replay_tests.cpp
 )
 target_link_libraries(orda_tests PRIVATE orda_core)

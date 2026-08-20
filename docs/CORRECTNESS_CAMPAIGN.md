@@ -2,10 +2,11 @@
 
 ## Purpose
 
-This campaign checks the invariants that should hold after every processed
-event.
+This campaign checks the invariants and event outcomes that should hold after
+every processed event.
 
-It complements the example tests with deterministic generated histories.
+It complements the example tests with deterministic generated histories and an
+independent reference implementation.
 
 The campaign demonstrates behavioral properties.
 
@@ -28,28 +29,42 @@ order.
 
 ## Generated histories
 
-`tests/property_tests.cpp` uses a local XorShift64 generator with fixed seeds.
+`tests/property_tests.cpp` uses a local XorShift64 generator with fixed seeds
+for direct invariant checks.
+
+`tests/differential_tests.cpp` uses a separate generator and compares the
+production engine with `tests/reference_order_book.cpp`.
 
 The generated operations include adds, cancellations, valid modifications,
 invalid modifications, and duplicate order IDs.
 
-The tests use 20 seeds with 500 events for invariant coverage.
+The invariant tests use 20 seeds with 500 events.
+
+The differential campaign uses 256 seeds with 750 events per seed.
+
+For every event it compares the error, emitted trades, order-level book state,
+live-order count, and cumulative statistics.
 
 A separate 1,000-event history is replayed twice and compares errors, trades,
-book formatting, and engine statistics.
+book formatting, and engine statistics for determinism.
 
 The fixed seeds make failures reproducible without relying on scheduler timing
 or external randomness.
 
-## Test oracle
+## Test oracles
 
-The current campaign checks externally observable book invariants rather than
-reimplementing the matching algorithm in the test suite.
+The direct invariant tests check externally observable book properties without
+reimplementing the matching algorithm.
 
-This keeps the oracle independent of the production containers.
+The reference engine intentionally reimplements the matching rules with
+different containers and slower operations.
 
-The existing scenario tests remain responsible for detailed FIFO and
-multi-level trade expectations.
+It uses vectors at each price level and linear order lookup.
+
+The reference is a test oracle, not a second production backend.
+
+The existing scenario tests remain responsible for focused examples and make
+the expected FIFO and multi-level trade behavior easy to read.
 
 Future order-type tests should extend the campaign with lifecycle accounting
 for traded, resting, and cancelled quantity.
