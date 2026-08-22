@@ -9,8 +9,8 @@ The target requires a Clang toolchain with libFuzzer support.
 
 ```sh
 cmake -S . -B build-fuzz -DLOB_BUILD_FUZZER=ON \
-  -DCMAKE_CXX_FLAGS='-fsanitize=fuzzer,address,undefined' \
-  -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=fuzzer,address,undefined'
+  -DCMAKE_CXX_FLAGS='-fsanitize=address,undefined' \
+  -DCMAKE_EXE_LINKER_FLAGS='-fsanitize=address,undefined'
 cmake --build build-fuzz --target orda_fuzz --parallel
 ```
 
