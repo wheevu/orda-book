@@ -42,6 +42,16 @@ void* allocate_aligned(std::size_t size, std::size_t alignment) {
 
 }  // namespace allocation_probe
 
+#if defined(__has_feature)
+#if __has_feature(thread_sanitizer)
+#define LOB_THREAD_SANITIZER_ENABLED 1
+#endif
+#endif
+#if defined(__SANITIZE_THREAD__)
+#define LOB_THREAD_SANITIZER_ENABLED 1
+#endif
+
+#if !defined(LOB_THREAD_SANITIZER_ENABLED)
 void* operator new(std::size_t size) {
   void* pointer = std::malloc(size == 0 ? 1 : size);
   if (pointer == nullptr) {
@@ -108,6 +118,7 @@ void operator delete(void* pointer, std::align_val_t, const std::nothrow_t&) noe
 void operator delete[](void* pointer, std::align_val_t, const std::nothrow_t&) noexcept {
   std::free(pointer);
 }
+#endif
 
 namespace {
 
