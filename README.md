@@ -5,6 +5,8 @@ orda-book is a small single-threaded limit order book in C++17.
 It matches limit orders using price-time priority, supports offline replay, and
 measures both throughput and per-event latency on deterministic workloads.
 
+![orda-book architecture and event flow](docs/ARCHITECTURE_OVERVIEW.svg)
+
 ## Measured snapshot
 
 Release build on commit `3c79930`, measured on a MacBookAir10,1 with Apple
@@ -39,8 +41,6 @@ workload matrix and measurement details.
 | --- | --- |
 | Pooled backend exact full-capacity matching contract | CTest + ASan/UBSan |
 | Per-symbol single-writer partition lab (deterministic replay) | CTest + ASan/UBSan |
-
-![orda-book architecture and event flow](docs/ARCHITECTURE_OVERVIEW.svg)
 
 ## Quickstart
 
