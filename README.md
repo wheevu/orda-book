@@ -35,6 +35,11 @@ workload matrix and measurement details.
 | ThreadSanitizer | configured in Linux CI |
 | Differential libFuzzer | configured in Linux CI; unavailable in the local macOS toolchain |
 
+| experiment | status |
+| --- | --- |
+| Pooled backend exact full-capacity matching contract | CTest + ASan/UBSan |
+| Per-symbol single-writer partition lab (deterministic replay) | CTest + ASan/UBSan |
+
 ![orda-book architecture and event flow](docs/ARCHITECTURE_OVERVIEW.svg)
 
 ## Quickstart
@@ -84,14 +89,28 @@ per-event latency collection:
   --reuse-trades
 ```
 
+Run the per-symbol partition lab:
+
+```sh
+./build/orda_partition_lab \
+  --generate 200000 \
+  --shards 4 \
+  --capacity 1024 \
+  --seed 305419896
+```
+
+This produces a lossless, per-shard replay-equivalent threaded run with
+enqueue-to-dequeue and dequeue-to-match latency percentiles.
+
 ## What it contains
 
 - Ordered bid and ask price levels.
 - FIFO queues within each price level.
-- Experimental preallocated order-slot backend.
+- Experimental preallocated order-slot backend (**exact full-capacity matching contract**: crossing orders recycle slots, only non-crossing resting adds reject).
 - Experimental bounded price-ladder backend.
 - Bounded single-producer/single-consumer ingress queue.
 - Threaded ingress benchmark with queue-delay percentiles.
+- **Per-symbol single-writer partition lab**: experiment-local symbol routing, bounded SPSC per shard, deterministic per-shard replay oracle, losslessness/ordering/queue-full accounting verified.**
 - Order-ID lookup for cancellation and modification.
 - Add, cancel, and cancel-replace modification events.
 - Multi-level matching and trade output.
@@ -156,7 +175,8 @@ positive quantities, non-crossing state, live-order counts, and valid trades.
 - [`docs/BENCHMARK_RESULTS.md`](docs/BENCHMARK_RESULTS.md): the first measured
   local baseline and its environment metadata.
 - [`docs/ORDER_STORAGE_DESIGN.md`](docs/ORDER_STORAGE_DESIGN.md): the proposed
-  pooled order-slot backend and its equivalence contract.
+  pooled order-slot backend and its equivalence contract (includes exact
+  full-capacity matching rule).
 - [`docs/PRICE_LADDER_DESIGN.md`](docs/PRICE_LADDER_DESIGN.md): bounded price
   assumptions, bitmap discovery, and comparison boundaries.
 - [`docs/FUZZING.md`](docs/FUZZING.md): optional libFuzzer differential target

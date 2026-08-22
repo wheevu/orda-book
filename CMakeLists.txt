@@ -47,6 +47,9 @@ target_link_libraries(orda_allocation_benchmark PRIVATE orda_core)
 add_executable(orda_tail_benchmark src/tail_benchmark_main.cpp)
 target_link_libraries(orda_tail_benchmark PRIVATE orda_core)
 
+add_executable(orda_partition_lab src/partition_lab_main.cpp)
+target_link_libraries(orda_partition_lab PRIVATE orda_core Threads::Threads)
+
 add_executable(orda_tests
   tests/test_main.cpp
   tests/order_book_tests.cpp
@@ -56,6 +59,7 @@ add_executable(orda_tests
   tests/reference_order_book.cpp
   tests/differential_tests.cpp
   tests/replay_tests.cpp
+  tests/partition_tests.cpp
 )
 target_link_libraries(orda_tests PRIVATE orda_core)
 target_link_libraries(orda_tests PRIVATE Threads::Threads)

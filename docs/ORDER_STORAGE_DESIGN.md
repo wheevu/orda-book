@@ -48,9 +48,28 @@ The pooled implementation uses explicit capacity.
 
 `reserve_orders` allocates the slot array and free list before event processing.
 
-Exceeding the configured capacity must return a documented error.
-
 The backend does not silently allocate new order slots in the timed path.
+
+A slot becomes available in two ways: it is free when the event is processed
+(`free_head_ != kInvalidSlot`), or matching frees a slot from a fully consumed
+opposing order.
+
+Capacity rejection therefore applies only to a resting add that cannot obtain a
+slot by either route:
+
+- the incoming order would leave resting quantity (`resting_qty > 0`);
+- no slot is free now (`free_head_ == kInvalidSlot`); and
+- the incoming order crosses no opposing quantity (`crossing_qty == 0`).
+
+Every other add proceeds. In particular, an add that crosses opposing quantity is
+accepted even at full capacity: matching fully consumes each crossed order before
+the incoming is exhausted, which frees at least one slot, so any residual resting
+quantity reuses it. A non-crossing resting add at full capacity has no such route
+and is rejected with `BookError::CapacityExceeded`.
+
+The rejection path mutates no book state and records one rejected request.
+Modification always removes the existing order before re-adding, so it has the
+freed slot available and never rejects on capacity.
 
 Price-level map nodes and order-index bucket growth remain separate concerns.
 
@@ -122,6 +141,9 @@ and measuring latency tails before changing the design further.
 ## Open implementation questions
 
 - Capacity exhaustion is represented by `BookError::CapacityExceeded`.
+  The pooled backend rejects only a non-crossing resting add at full capacity; a
+  crossing add that frees a slot during matching is accepted. See the capacity
+  contract above.
 - Should price levels remain `std::map` in the first pooled comparison?
 - How should the benchmark count allocations without changing the hot path?
 - The pooled backend exposes the same diagnostic order snapshot API.

@@ -268,7 +268,15 @@ BookError PooledOrderBook::add_order(OrderId order_id, Side side, Price price, Q
     ++stats_.rejected_requests;
     return BookError::QuantityOverflow;
   }
-  if (free_head_ == kInvalidSlot) {
+
+  // Full-capacity add contract: reject only when the incoming order would leave a
+  // resting order (resting_qty > 0) and no slot can become available to hold it.
+  // A slot becomes available either now (free_head_ != kInvalidSlot) or by matching:
+  // whenever the incoming has leftover quantity (resting_qty > 0) every crossed
+  // opposing order is fully consumed before the incoming is exhausted, so at least
+  // one slot is freed. The only unsatisfiable case is a non-crossing resting add at
+  // full capacity (no free slot now and no opposing order to consume).
+  if (resting_qty > 0 && free_head_ == kInvalidSlot && crossing_qty == 0) {
     ++stats_.rejected_requests;
     return BookError::CapacityExceeded;
   }

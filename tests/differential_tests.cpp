@@ -163,22 +163,96 @@ TEST_CASE(pooled_engine_matches_reference_across_fixed_histories) {
   }
 }
 
-TEST_CASE(pooled_capacity_rejection_does_not_mutate_the_book) {
+// The pooled capacity contract rejects a resting add only when no slot can be
+// obtained: there is no free slot now and the incoming order crosses no opposing
+// quantity to free one. A crossing add is accepted even at full capacity because
+// matching fully consumes each crossed order and recycles its slot.
+
+TEST_CASE(pooled_capacity_rejects_only_noncrossing_resting_add_at_full_capacity) {
   lob::PooledOrderBook book;
   book.reserve_orders(1);
   std::vector<lob::Trade> trades;
 
   CHECK_EQ(static_cast<int>(book.add_order(1, lob::Side::Bid, 100, 1, trades)),
            static_cast<int>(lob::BookError::None));
-  CHECK_EQ(static_cast<int>(book.add_order(2, lob::Side::Ask, 100, 1, trades)),
+  CHECK_EQ(book.live_order_count(), static_cast<std::size_t>(1));
+
+  // Full capacity, no opposing order to cross: a resting add must be rejected and
+  // the book left untouched.
+  CHECK_EQ(static_cast<int>(book.add_order(2, lob::Side::Bid, 101, 1, trades)),
            static_cast<int>(lob::BookError::CapacityExceeded));
   CHECK_TRUE(trades.empty());
   CHECK_EQ(book.live_order_count(), static_cast<std::size_t>(1));
   CHECK_EQ(book.top_of_book(lob::Side::Bid)->qty, 1);
+  CHECK_EQ(book.stats().rejected_requests, static_cast<std::size_t>(1));
 
+  // Freeing a slot restores the ability to add a resting order.
   CHECK_EQ(static_cast<int>(book.cancel_order(1)), static_cast<int>(lob::BookError::None));
-  CHECK_EQ(static_cast<int>(book.add_order(2, lob::Side::Ask, 100, 1, trades)),
+  CHECK_EQ(static_cast<int>(book.add_order(2, lob::Side::Bid, 100, 1, trades)),
            static_cast<int>(lob::BookError::None));
+  CHECK_EQ(book.live_order_count(), static_cast<std::size_t>(1));
+}
+
+TEST_CASE(pooled_crossing_add_recycles_slot_and_succeeds_at_full_capacity) {
+  lob::PooledOrderBook book;
+  book.reserve_orders(1);
+  std::vector<lob::Trade> trades;
+
+  CHECK_EQ(static_cast<int>(book.add_order(1, lob::Side::Bid, 100, 5, trades)),
+           static_cast<int>(lob::BookError::None));
+
+  // No free slot, but the incoming ask fully crosses the resting bid, which
+  // releases its slot. The add must not be rejected.
+  CHECK_EQ(static_cast<int>(book.add_order(2, lob::Side::Ask, 100, 5, trades)),
+           static_cast<int>(lob::BookError::None));
+  CHECK_EQ(trades.size(), static_cast<std::size_t>(1));
+  CHECK_EQ(trades[0].qty, 5);
+  CHECK_TRUE(!book.top_of_book(lob::Side::Bid).has_value());
+  CHECK_TRUE(!book.top_of_book(lob::Side::Ask).has_value());
+  CHECK_EQ(book.live_order_count(), static_cast<std::size_t>(0));
+
+  // The recycled slot is now available for a fresh resting add.
+  CHECK_EQ(static_cast<int>(book.add_order(3, lob::Side::Bid, 100, 1, trades)),
+           static_cast<int>(lob::BookError::None));
+  CHECK_EQ(book.live_order_count(), static_cast<std::size_t>(1));
+}
+
+TEST_CASE(pooled_crossing_add_with_residual_rest_succeeds_at_full_capacity) {
+  lob::PooledOrderBook book;
+  book.reserve_orders(1);
+  std::vector<lob::Trade> trades;
+
+  CHECK_EQ(static_cast<int>(book.add_order(1, lob::Side::Bid, 100, 5, trades)),
+           static_cast<int>(lob::BookError::None));
+
+  // Incoming ask exceeds the resting bid: the bid is fully consumed (slot freed)
+  // and the leftover quantity rests as a new ask in that recycled slot.
+  CHECK_EQ(static_cast<int>(book.add_order(2, lob::Side::Ask, 100, 8, trades)),
+           static_cast<int>(lob::BookError::None));
+  CHECK_EQ(trades.size(), static_cast<std::size_t>(1));
+  CHECK_EQ(trades[0].qty, 5);
+  CHECK_EQ(book.live_order_count(), static_cast<std::size_t>(1));
+  const auto ask_top = book.top_of_book(lob::Side::Ask);
+  CHECK_TRUE(ask_top.has_value());
+  CHECK_EQ(ask_top->qty, 3);
+}
+
+TEST_CASE(pooled_partial_crossing_at_full_capacity_keeps_resting_order) {
+  lob::PooledOrderBook book;
+  book.reserve_orders(1);
+  std::vector<lob::Trade> trades;
+
+  CHECK_EQ(static_cast<int>(book.add_order(1, lob::Side::Bid, 100, 5, trades)),
+           static_cast<int>(lob::BookError::None));
+
+  // Incoming ask is smaller than the resting bid: it is fully absorbed without
+  // freeing a slot and without leaving a resting residual, so no rejection fires.
+  CHECK_EQ(static_cast<int>(book.add_order(2, lob::Side::Ask, 100, 3, trades)),
+           static_cast<int>(lob::BookError::None));
+  CHECK_EQ(trades.size(), static_cast<std::size_t>(1));
+  CHECK_EQ(trades[0].qty, 3);
+  CHECK_EQ(book.live_order_count(), static_cast<std::size_t>(1));
+  CHECK_EQ(book.top_of_book(lob::Side::Bid)->qty, 2);
 }
 
 TEST_CASE(ladder_engine_matches_reference_across_fixed_histories) {
