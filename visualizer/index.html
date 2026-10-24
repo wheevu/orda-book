@@ -14,7 +14,7 @@
   <body>
     <header class="topbar">
       <a class="wordmark" href="./" aria-label="orda-book walkthrough home">orda<span>.</span>book</a>
-      <a class="repo-link" href="https://github.com/stra-ta/orda-book">View Repo</a>
+      <a class="repo-link" href="https://github.com/wheevu/orda-book">View Repo</a>
     </header>
 
     <main class="page-shell">
@@ -149,7 +149,7 @@
             <figure class="code-excerpt">
               <pre class="code-block"><code>  using BidLevels = std::map&lt;Price, PriceLevel, std::greater&lt;Price&gt;&gt;;
   using AskLevels = std::map&lt;Price, PriceLevel, std::less&lt;Price&gt;&gt;;</code></pre>
-              <figcaption><a class="code-ref" href="https://github.com/stra-ta/orda-book/blob/c07fb82/src/order_book.hpp#L49-L50">order_book.hpp:49</a></figcaption>
+              <figcaption><a class="code-ref" href="https://github.com/wheevu/orda-book/blob/c07fb82/src/order_book.hpp#L49-L50">order_book.hpp:49</a></figcaption>
               </figure>
           </div>
 
@@ -162,7 +162,7 @@
     Quantity total_qty{};
     std::list&lt;Order&gt; orders;
   };</code></pre>
-              <figcaption><a class="code-ref" href="https://github.com/stra-ta/orda-book/blob/c07fb82/src/order_book.hpp#L43-L47">order_book.hpp:43</a></figcaption>
+              <figcaption><a class="code-ref" href="https://github.com/wheevu/orda-book/blob/c07fb82/src/order_book.hpp#L43-L47">order_book.hpp:43</a></figcaption>
               </figure>
           </div>
 
@@ -172,7 +172,7 @@
             <figure class="code-excerpt">
               <pre class="code-block"><code>  PriceLevel&amp; level = ensure_level(side, price);
   level.orders.push_back(Order{order_id, side, price, qty});</code></pre>
-              <figcaption><a class="code-ref" href="https://github.com/stra-ta/orda-book/blob/c07fb82/src/order_book.cpp#L33-L34">order_book.cpp:33</a></figcaption>
+              <figcaption><a class="code-ref" href="https://github.com/wheevu/orda-book/blob/c07fb82/src/order_book.cpp#L33-L34">order_book.cpp:33</a></figcaption>
               </figure>
           </div>
 
@@ -182,7 +182,7 @@
             <figure class="code-excerpt">
               <pre class="code-block"><code>        Order&amp; resting = level.orders.front();
         const Quantity fill_qty = std::min(incoming_qty, resting.qty);</code></pre>
-              <figcaption><a class="code-ref" href="https://github.com/stra-ta/orda-book/blob/c07fb82/src/order_book.cpp#L93-L94">order_book.cpp:93</a></figcaption>
+              <figcaption><a class="code-ref" href="https://github.com/wheevu/orda-book/blob/c07fb82/src/order_book.cpp#L93-L94">order_book.cpp:93</a></figcaption>
               </figure>
           </div>
 
@@ -197,7 +197,7 @@
   if (remaining &gt; 0) {
     add_resting_order(order_id, side, new_price, remaining);
   }</code></pre>
-              <figcaption><a class="code-ref" href="https://github.com/stra-ta/orda-book/blob/c07fb82/src/order_book.cpp#L272-L278">order_book.cpp:272</a></figcaption>
+              <figcaption><a class="code-ref" href="https://github.com/wheevu/orda-book/blob/c07fb82/src/order_book.cpp#L272-L278">order_book.cpp:272</a></figcaption>
               </figure>
           </div>
 

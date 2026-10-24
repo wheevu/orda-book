@@ -15,7 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Validate results manifest
-        run: python3 ../.github/scripts/validate_manifest.py results/manifest.json || python3 /Users/nguyenhuyvu/projects/stra-ta/.github/scripts/validate_manifest.py results/manifest.json || echo "no manifest"
+        run: |
+          python3 -m unittest discover -s scripts -p 'test_*.py'
+          ./scripts/check_manifest.sh
       - name: Select compiler
         run: |
           if [ "${{ matrix.compiler }}" = "gcc" ]; then

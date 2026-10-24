@@ -1,12 +1,10 @@
 # orda-book
 
-[![CI](https://github.com/stra-ta/orda-book/actions/workflows/ci.yml/badge.svg)](https://github.com/stra-ta/orda-book/actions/workflows/ci.yml)
+[![CI](https://github.com/wheevu/orda-book/actions/workflows/ci.yml/badge.svg)](https://github.com/wheevu/orda-book/actions/workflows/ci.yml)
 
 orda-book is a single-threaded limit-order matching engine and replay lab.
 
 The lab isolates matching semantics, storage backends, ingress partitioning, and measurement evidence.
-
-orda-book is the low-latency application target in the [stra-ta systems lab](https://github.com/stra-ta).
 
 ## Evidence
 

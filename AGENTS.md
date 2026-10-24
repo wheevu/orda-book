@@ -47,7 +47,9 @@ Do not turn local comparison points into production, real-time, deterministic, o
 
 Do not edit historical result tables to make a new run appear current.
 
-## Lab-wide contracts
+## Evidence conventions
 
-- See https://github.com/stra-ta/.github/blob/main/LAB_RULES.md and https://github.com/stra-ta/.github/blob/main/EVIDENCE.md and https://github.com/stra-ta/.github/blob/main/COMPATIBILITY.md for lab-wide naming, evidence, and schema contracts.
-- Per https://github.com/stra-ta/.github/blob/main/CONTRIBUTING.md, contributions require the target repo's AGENTS.md, README, and relevant design note, preserve repo boundaries, add the narrowest regression test, run one-command verification, and keep performance claims tied to committed manifests.
+Read `README.md`, `GUIDE.md`, and the relevant design note before changing behavior.
+Add a focused regression test and run `./scripts/verify.sh`.
+Validate result manifests with `./scripts/check_manifest.sh`.
+Keep performance claims tied to committed measurements and their provenance.

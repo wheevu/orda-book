@@ -101,7 +101,7 @@ for (const [index, item] of items.entries()) {
   if (!link || !block) continue;
 
   const [, href, label] = link;
-  const target = href.match(/^https:\/\/github\.com\/stra-ta\/orda-book\/blob\/([0-9a-f]{7,40})\/(.+)#L(\d+)-L(\d+)$/);
+  const target = href.match(/^https:\/\/github\.com\/wheevu\/orda-book\/blob\/([0-9a-f]{7,40})\/(.+)#L(\d+)-L(\d+)$/);
   check(
     Boolean(target),
     `${where}: ${href} is not a permalink to a line range. A link to a branch drifts ` +

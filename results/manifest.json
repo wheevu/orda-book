@@ -1,9 +1,9 @@
 {
-  "schema": "stra-ta/results-manifest/v1",
+  "schema": "orda-book/results-manifest/v1",
   "campaign_id": "pilot-orda-book-evidence-r1-20260830",
   "experiment_kind": "pilot",
   "source": {
-    "repository": "stra-ta/orda-book",
+    "repository": "wheevu/orda-book",
     "commit": "d8e56112d8866ce701ea4e06e60cf330acd5a745",
     "dirty": false,
     "tracked_diff_sha256": null,
@@ -31,7 +31,7 @@
       "echo",
       "manifest-example"
     ],
-    "cwd": "/Users/nguyenhuyvu/projects/stra-ta/orda-book",
+    "cwd": "/Users/nguyenhuyvu/projects/main/orda-book",
     "seeds": {
       "seed": 42
     }

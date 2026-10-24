@@ -4,7 +4,7 @@ This page steps through one price-time-priority example.
 Its event-by-event book snapshots and trades come from `orda_replay --trace-json`, not a second matching implementation in JavaScript.
 It is an explainer for the engine, not a market feed, and it never invents a timestamp: every axis is either price or event order.
 
-A hosted copy is published at <https://stra-ta.github.io/orda-book/>.
+A hosted copy is published at <https://wheevu.github.io/orda-book/>.
 It is this page in static mode, so the parameter panel is not there.
 
 The queue is what the example turns on.

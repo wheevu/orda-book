@@ -2,10 +2,7 @@
 set -eu
 ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 MANIFEST="$ROOT/results/manifest.json"
-VALIDATOR="$ROOT/../.github/scripts/validate_manifest.py"
-if [ ! -f "$VALIDATOR" ]; then
-  VALIDATOR="/Users/nguyenhuyvu/projects/stra-ta/.github/scripts/validate_manifest.py"
-fi
+VALIDATOR="$ROOT/scripts/validate_manifest.py"
 if [ -f "$MANIFEST" ]; then
   python3 "$VALIDATOR" "$MANIFEST"
   echo "manifest OK: $MANIFEST"

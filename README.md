@@ -1,10 +1,10 @@
 # orda-book
 
-[![CI](https://github.com/stra-ta/orda-book/actions/workflows/ci.yml/badge.svg)](https://github.com/stra-ta/orda-book/actions/workflows/ci.yml)
+[![CI](https://github.com/wheevu/orda-book/actions/workflows/ci.yml/badge.svg)](https://github.com/wheevu/orda-book/actions/workflows/ci.yml)
 
 A single-threaded C++17 limit-order matching engine and replay lab.
 
-[Step through one matching example](visualizer/README.md) in the browser, or open the [hosted copy](https://stra-ta.github.io/orda-book/).
+[Step through one matching example](visualizer/README.md) in the browser, or open the [hosted copy](https://wheevu.github.io/orda-book/).
 The book, the fills, and every chart on it come from the C++ matcher.
 It uses example prices and is not a live market chart.
 
@@ -47,9 +47,10 @@ See [GUIDE.md](GUIDE.md) for build presets and dependencies.
 
 ## Verification
 
-Functional CI and performance evidence are separate. See [GUIDE.md](GUIDE.md) and `LAB_RULES.md` / `EVIDENCE.md` in `stra-ta/.github` for manifest provenance and the one-command suite (`./scripts/verify.sh` / `./scripts/confidence.sh` or `tools/verify.sh`).
+Run `./scripts/verify.sh` for the functional suite.
+See [GUIDE.md](GUIDE.md) for sanitizer checks and benchmark commands.
 
 ## Limitations
 
-CI is functional only. Performance evidence requires a committed manifest with machine metadata (commit, compiler, kernel, CPU, arch, build type, seed, argv) and a link from the claim to that artifact. See `stra-ta/.github` for lab-wide caveats.
-
+CI checks correctness, not performance.
+Measurements record the machine, commit, compiler, build type, workload, seed, and command used.

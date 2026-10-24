@@ -1,6 +1,6 @@
 name: Pages
 
-# Publishes the visualizer to https://stra-ta.github.io/orda-book/.
+# Publishes the visualizer to https://wheevu.github.io/orda-book/.
 #
 # The page runs in its static mode here. On load it probes /api/trace, finds no
 # engine behind it, and draws the two checked-in traces instead, which is what
